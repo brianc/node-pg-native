@@ -1,0 +1,32 @@
+{
+  "name": "pg-native",
+  "version": "0.0.0",
+  "description": "A slightly nicer interface to Postgres over node-libpq",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/brianc/node-pg-native.git"
+  },
+  "keywords": [
+    "postgres",
+    "pg",
+    "libpq"
+  ],
+  "author": "Brian M. Carlson",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/brianc/node-pg-native/issues"
+  },
+  "homepage": "https://github.com/brianc/node-pg-native",
+  "dependencies": {
+    "libpq": "^0.2.0",
+    "pg-types": "^1.4.0"
+  },
+  "devDependencies": {
+    "mocha": "^1.21.4",
+    "async": "^0.9.0"
+  }
+}
