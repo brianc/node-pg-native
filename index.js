@@ -48,12 +48,21 @@ var mapResults = function(pq, types) {
   return rows;
 };
 
-var dispatchQuery = function(pq, fn, cb) {
-  setImmediate(function() {
-    var sent = fn();
-    if(!sent) return cb(new Error(pq.errorMessage()));
-    cb();
+var waitForDrain = function(pq, cb) {
+  var res = pq.flush();
+  if(res === 0) return cb();
+  if(res === -1) return cb(pq.errorMessage());
+  return pq.writable(function() {
+    waitForDrain(pq, cb);
   });
+};
+
+var dispatchQuery = function(pq, fn, cb) {
+  var success = pq.setNonBlocking(true);
+  if(!success) return cb(new Error('Unable to set non-blocking to true'));
+  var sent = fn();
+  if(!sent) return cb(new Error(pq.errorMessage()));
+  return waitForDrain(pq, cb);
 };
 
 var consumeResults = function(pq, cb) {
