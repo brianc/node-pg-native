@@ -73,7 +73,7 @@ var consumeResults = function(pq, cb) {
 
   var readError = function(message) {
     cleanup();
-    return cb(new Error(message || pq.errorMessage));
+    return cb(new Error(message || pq.errorMessage()));
   };
 
   var onReadable = function() {
