@@ -22,11 +22,12 @@
   },
   "homepage": "https://github.com/brianc/node-pg-native",
   "dependencies": {
-    "libpq": "0.2.5",
+    "libpq": "^0.4.1",
     "pg-types": "^1.4.0"
   },
   "devDependencies": {
+    "async": "^0.9.0",
     "mocha": "^1.21.4",
-    "async": "^0.9.0"
+    "okay": "^0.3.0"
   }
 }

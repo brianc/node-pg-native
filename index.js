@@ -1,4 +1,5 @@
 var Libpq = require('libpq');
+var consumeResults = require('./lib/consume-results');
 
 var Client = module.exports = function(types) {
   if(!types) {
@@ -24,6 +25,13 @@ Client.prototype.end = function(cb) {
   this.pq.finish();
   if(cb) setImmediate(cb);
 };
+
+var throwIfError = function(pq) {
+  var err = pq.resultErrorMessage() || pq.errorMessage();
+  if(err) {
+    throw new Error(err);
+  }
+}
 
 var mapResults = function(pq, types) {
   var rows = [];
@@ -65,43 +73,6 @@ var dispatchQuery = function(pq, fn, cb) {
   return waitForDrain(pq, cb);
 };
 
-var consumeResults = function(pq, cb) {
-  var cleanup = function() {
-    pq.removeListener('readable', onReadable);
-    pq.stopReader();
-  }
-
-  var readError = function(message) {
-    cleanup();
-    return cb(new Error(message || pq.errorMessage()));
-  };
-
-  var onReadable = function() {
-    //read waiting data from the socket
-    //e.g. clear the pending 'select'
-    if(!pq.consumeInput()) {
-      return readError();
-    }
-    //check if there is still outstanding data
-    //if so, wait for it all to come in
-    if(pq.isBusy()) {
-      return;
-    }
-    //load our result object
-    pq.getResult();
-
-    //"read until results return null"
-    //or in our case ensure we only have one result
-    if(pq.getResult()) {
-      return readError('Only one result at a time is accepted');
-    }
-    cleanup();
-    return cb(null);
-  };
-  pq.on('readable', onReadable);
-  pq.startReader();
-};
-
 Client.prototype.query = function(text, values, cb) {
   var queryFn;
   var pq = this.pq
@@ -121,13 +92,48 @@ Client.prototype.query = function(text, values, cb) {
   });
 };
 
+Client.prototype.prepare = function(statementName, text, nParams, cb) {
+  var pq = this.pq;
+  var fn = pq.sendPrepare.bind(pq, statementName, text, nParams);
+  dispatchQuery(pq, fn, function(err) {
+    if(err) return cb(err);
+    consumeResults(pq, cb);
+  });
+};
+
+Client.prototype.execute = function(statementName, parameters, cb) {
+  var pq = this.pq;
+  var types = this.types;
+  var fn = pq.sendQueryPrepared.bind(pq, statementName, parameters);
+  dispatchQuery(pq, fn, function(err, rows) {
+    if(err) return cb(err);
+    consumeResults(pq, function(err) {
+      return cb(err, err ? null : mapResults(pq, types));
+    });
+  });
+};
+
+var CopyFromStream = require('./lib/copy-from-stream');
+Client.prototype.getCopyFromStream = function() {
+  this.pq.setNonBlocking(true);
+  return new CopyFromStream(this.pq);
+};
+
 Client.prototype.querySync = function(text, values) {
   var queryFn;
   var pq = this.pq;
   pq[values ? 'execParams' : 'exec'].call(pq, text, values);
-  var success = !pq.errorMessage();
-  if(!success) {
-    throw new Error(pq.resultErrorMessage());
-  }
+  throwIfError(this.pq);
   return mapResults(pq, this.types);
+};
+
+Client.prototype.prepareSync = function(statementName, text, nParams) {
+  this.pq.prepare(statementName, text, nParams);
+  throwIfError(this.pq);
+};
+
+Client.prototype.executeSync = function(statementName, parameters) {
+  this.pq.execPrepared(statementName, parameters);
+  throwIfError(this.pq);
+  return mapResults(this.pq, this.types);
 };
