@@ -23,10 +23,13 @@
   "homepage": "https://github.com/brianc/node-pg-native",
   "dependencies": {
     "libpq": "^0.4.1",
-    "pg-types": "^1.4.0"
+    "pg-types": "^1.4.0",
+    "readable-stream": "^1.0.31"
   },
   "devDependencies": {
     "async": "^0.9.0",
+    "concat-stream": "^1.4.6",
+    "lodash": "^2.4.1",
     "mocha": "^1.21.4",
     "okay": "^0.3.0"
   }

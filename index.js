@@ -119,6 +119,12 @@ Client.prototype.getCopyFromStream = function() {
   return new CopyFromStream(this.pq);
 };
 
+var CopyToStream = require('./lib/copy-to-stream');
+Client.prototype.getCopyToStream = function() {
+  this.pq.setNonBlocking(true);
+  return new CopyToStream(this.pq);
+};
+
 Client.prototype.querySync = function(text, values) {
   var queryFn;
   var pq = this.pq;
