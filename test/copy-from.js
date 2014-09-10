@@ -15,7 +15,7 @@ describe('COPY FROM', function() {
     var client = this.client;
     this.client.querySync('CREATE TEMP TABLE blah(name text, age int)');
     this.client.querySync('COPY blah FROM stdin');
-    var stream = this.client.getCopyFromStream();
+    var stream = this.client.getCopyStream();
     stream.write(Buffer('Brian\t32\n', 'utf8'));
     stream.write(Buffer('Aaron\t30\n', 'utf8'));
     stream.write(Buffer('Shelley\t28\n', 'utf8'));
@@ -33,7 +33,7 @@ describe('COPY FROM', function() {
     var client = this.client;
     this.client.querySync('CREATE TEMP TABLE boom(name text, age int)');
     this.client.querySync('COPY boom FROM stdin');
-    var stream = this.client.getCopyFromStream();
+    var stream = this.client.getCopyStream();
     stream.write(Buffer('Brian\t32\n', 'utf8'));
     stream.write(Buffer('Aaron\t30\n', 'utf8'), function() {
       stream.end(Buffer('Shelley\t28\n', 'utf8'), function() {

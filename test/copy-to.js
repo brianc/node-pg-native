@@ -19,7 +19,7 @@ describe('COPY TO', function() {
     var self = this
     this.client.query(qText, function(err) {
       if(err) return done(err);
-      var stream = self.client.getCopyToStream();
+      var stream = self.client.getCopyStream();
       stream.pipe(concat(function(buff) {
         var res = buff.toString('utf8')
         var expected = _.range(0, limit).join('\n') + '\n'

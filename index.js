@@ -130,16 +130,10 @@ Client.prototype.execute = function(statementName, parameters, cb) {
   });
 };
 
-var CopyFromStream = require('./lib/copy-from-stream');
-Client.prototype.getCopyFromStream = function() {
+var CopyStream = require('./lib/copy-stream');
+Client.prototype.getCopyStream = function() {
   this.pq.setNonBlocking(true);
-  return new CopyFromStream(this.pq);
-};
-
-var CopyToStream = require('./lib/copy-to-stream');
-Client.prototype.getCopyToStream = function() {
-  this.pq.setNonBlocking(true);
-  return new CopyToStream(this.pq);
+  return new CopyStream(this.pq);
 };
 
 Client.prototype.querySync = function(text, values) {
