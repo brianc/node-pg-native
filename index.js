@@ -1,7 +1,10 @@
 var Libpq = require('libpq');
 var consumeResults = require('./lib/consume-results');
+var EventEmitter = require('events').EventEmitter;
+var util = require('util');
 
 var Client = module.exports = function(types) {
+  EventEmitter.call(this);
   if(!types) {
     var pgTypes = require('pg-types')
     types = pgTypes.getTypeParser.bind(pgTypes)
@@ -11,7 +14,20 @@ var Client = module.exports = function(types) {
   }
   this.pq = new Libpq();
   this.types = types;
+  var self = this;
+  this.on('newListener', function(event) {
+    self.pq.startReader();
+    self.pq.once('readable', function() {
+      self.pq.consumeInput();
+      var notice;
+      while(notice = self.pq.notifies()) {
+        self.emit('notification', notice);
+      }
+    });
+  });
 };
+
+util.inherits(Client, EventEmitter);
 
 Client.prototype.connect = function(params, cb) {
   this.pq.connect(params, cb);
@@ -22,6 +38,7 @@ Client.prototype.connectSync = function(params) {
 };
 
 Client.prototype.end = function(cb) {
+  this.pq.stopReader();
   this.pq.finish();
   if(cb) setImmediate(cb);
 };
