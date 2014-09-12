@@ -1,5 +1,4 @@
 var Libpq = require('libpq');
-var consumeResults = require('./lib/consume-results');
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 
@@ -14,17 +13,13 @@ var Client = module.exports = function(types) {
   }
   this.pq = new Libpq();
   this.types = types;
+  this._reading = false;
+  this._read = this._read.bind(this);
   var self = this;
   this.on('newListener', function(event) {
-    self.pq.startReader();
-    self.pq.once('readable', function() {
-      self.pq.consumeInput();
-      var notice;
-      while(notice = self.pq.notifies()) {
-        self.emit('notification', notice);
-      }
-    });
-  });
+    if(event != 'notification') return;
+    self._startReading();
+  })
 };
 
 util.inherits(Client, EventEmitter);
@@ -38,9 +33,75 @@ Client.prototype.connectSync = function(params) {
 };
 
 Client.prototype.end = function(cb) {
-  this.pq.stopReader();
+  this._stopReading();
   this.pq.finish();
   if(cb) setImmediate(cb);
+};
+
+Client.prototype._readError = function(message) {
+  this._stopReading();
+  var err = new Error(message || this.pq.errorMessage());
+  this.emit('error', err);
+};
+
+Client.prototype._stopReading = function() {
+  this._reading = false;
+  this.pq.stopReader();
+  this.pq.removeListener('readable', this._read);
+};
+
+//called when libpq is readable
+Client.prototype._read = function() {
+  var pq = this.pq;
+  //read waiting data from the socket
+  //e.g. clear the pending 'select'
+  if(!pq.consumeInput()) {
+    return this._readError();
+  }
+
+  //check if there is still outstanding data
+  //if so, wait for it all to come in
+  if(pq.isBusy()) {
+    return;
+  }
+
+  //load our result object
+  pq.getResult();
+
+  //"read until results return null"
+  //or in our case ensure we only have one result
+  if(pq.getResult() && pq.resultStatus() != 'PGRES_COPY_OUT') {
+    return this._readError('Only one result at a time is accepted:' + pq.resultStatus());
+  }
+
+  var status = pq.resultStatus();
+  switch(status) {
+    case 'PGRES_FATAL_ERROR':
+      return this._readError();
+    case 'PGRES_COMMAND_OK':
+    case 'PGRES_TUPLES_OK':
+    case 'PGRES_COPY_OUT': {
+      this.emit('result');
+      break;
+    }
+    default:
+      return this._readError('unrecognized cmmand status: ' + status);
+  }
+
+  var notice;
+  while(notice = this.pq.notifies()) {
+    this.emit('notification', notice);
+  }
+};
+
+//ensures the client is reading and
+//everything is set up for async io
+Client.prototype._startReading = function() {
+  if(this._reading) return;
+  this._reading = true;
+  this.pq.setNonBlocking(true);
+  this.pq.startReader();
+  this.pq.on('readable', this._read);
 };
 
 var throwIfError = function(pq) {
@@ -90,6 +151,24 @@ var dispatchQuery = function(pq, fn, cb) {
   return waitForDrain(pq, cb);
 };
 
+Client.prototype._awaitResult = function(cb) {
+  this._startReading();
+  var self = this;
+  var onError = function(e) {
+    self.removeListener('error', onError);
+    self.removeListener('result', onResult);
+    cb(e);
+  };
+
+  var onResult = function() {
+    self.removeListener('error', onError);
+    self.removeListener('result', onResult);
+    cb(null);
+  };
+  this.once('error', onError);
+  this.once('result', onResult);
+}
+
 Client.prototype.query = function(text, values, cb) {
   var queryFn;
   var pq = this.pq
@@ -101,9 +180,10 @@ Client.prototype.query = function(text, values, cb) {
     queryFn = pq.sendQueryParams.bind(pq, text, values);
   }
 
+  var self = this
   dispatchQuery(pq, queryFn, function(err) {
     if(err) return cb(err);
-    consumeResults(pq, function(err) {
+    self._awaitResult(function(err) {
       return cb(err, err ? null : mapResults(pq, types));
     });
   });
@@ -112,19 +192,21 @@ Client.prototype.query = function(text, values, cb) {
 Client.prototype.prepare = function(statementName, text, nParams, cb) {
   var pq = this.pq;
   var fn = pq.sendPrepare.bind(pq, statementName, text, nParams);
+  var self = this;
   dispatchQuery(pq, fn, function(err) {
     if(err) return cb(err);
-    consumeResults(pq, cb);
+    self._awaitResult(cb);
   });
 };
 
 Client.prototype.execute = function(statementName, parameters, cb) {
   var pq = this.pq;
+  var self = this;
   var types = this.types;
   var fn = pq.sendQueryPrepared.bind(pq, statementName, parameters);
   dispatchQuery(pq, fn, function(err, rows) {
     if(err) return cb(err);
-    consumeResults(pq, function(err) {
+    self._awaitResult(function(err) {
       return cb(err, err ? null : mapResults(pq, types));
     });
   });
@@ -133,6 +215,7 @@ Client.prototype.execute = function(statementName, parameters, cb) {
 var CopyStream = require('./lib/copy-stream');
 Client.prototype.getCopyStream = function() {
   this.pq.setNonBlocking(true);
+  this._stopReading();
   return new CopyStream(this.pq);
 };
 

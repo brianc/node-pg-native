@@ -1,13 +1,11 @@
 var Client = require('../');
 var ok = require('okay');
 var assert = require('assert');
+var concat = require('concat-stream');
 
 describe('async workflow', function() {
-  before(function() {
+  before(function(done) {
     this.client = new Client();
-  });
-
-  it('connects', function(done) {
     this.client.connect(done);
   });
 
@@ -39,8 +37,23 @@ describe('async workflow', function() {
 
   it('sends an async query, copies in, copies out, and sends another query', function(done) {
     var self = this;
-    echoParams.call(this, ['one', 'two'], ok(done, function() {
-      done();
-    }))
+    this.client.querySync('CREATE TEMP TABLE test(name text, age int)');
+    this.client.query("INSERT INTO test(name, age) VALUES('brian', 32)", ok(done, function() {
+      self.client.querySync('COPY test FROM stdin');
+      console.log('got stream')
+      var input = self.client.getCopyStream();
+      input.write(Buffer('Aaron\t30\n', 'utf8'))
+      input.end(function() {
+        self.client.query('SELECT COUNT(*) FROM test', ok(done, function(rows) {
+          assert.equal(rows.length, 1)
+          self.client.query('COPY test TO stdout', ok(done, function() {
+            var output = self.client.getCopyStream();
+            output.pipe(concat(function(err, res) {
+              done();
+            }));
+          }));
+        }));
+      });
+    }));
   });
 });
