@@ -134,23 +134,6 @@ var mapResults = function(pq, types) {
   return rows;
 };
 
-var waitForDrain = function(pq, cb) {
-  var res = pq.flush();
-  if(res === 0) return cb();
-  if(res === -1) return cb(pq.errorMessage());
-  return pq.writable(function() {
-    waitForDrain(pq, cb);
-  });
-};
-
-var dispatchQuery = function(pq, fn, cb) {
-  var success = pq.setNonBlocking(true);
-  if(!success) return cb(new Error('Unable to set non-blocking to true'));
-  var sent = fn();
-  if(!sent) return cb(new Error(pq.errorMessage()));
-  return waitForDrain(pq, cb);
-};
-
 Client.prototype._awaitResult = function(cb) {
   this._startReading();
   var self = this;
@@ -169,15 +152,35 @@ Client.prototype._awaitResult = function(cb) {
   this.once('result', onResult);
 }
 
+//wait for the writable socket to drain
+var waitForDrain = function(pq, cb) {
+  var res = pq.flush();
+  if(res === 0) return cb();
+  if(res === -1) return cb(pq.errorMessage());
+  return pq.writable(function() {
+    waitForDrain(pq, cb);
+  });
+};
+
+//send an async query to libpq and wait for it to
+//finish writing query text to the socket
+var dispatchQuery = function(pq, fn, cb) {
+  var success = pq.setNonBlocking(true);
+  if(!success) return cb(new Error('Unable to set non-blocking to true'));
+  var sent = fn();
+  if(!sent) return cb(new Error(pq.errorMessage() || 'Something went wrong dispatching the query'));
+  return waitForDrain(pq, cb);
+};
+
 Client.prototype.query = function(text, values, cb) {
   var queryFn;
   var pq = this.pq
   var types = this.types
   if(typeof values == 'function') {
     cb = values;
-    queryFn = pq.sendQuery.bind(pq, text);
+    queryFn = function() { return pq.sendQuery(text); };
   } else {
-    queryFn = pq.sendQueryParams.bind(pq, text, values);
+    queryFn = function() { return pq.sendQueryParams(text, values); };
   }
 
   var self = this
@@ -190,9 +193,11 @@ Client.prototype.query = function(text, values, cb) {
 };
 
 Client.prototype.prepare = function(statementName, text, nParams, cb) {
-  var pq = this.pq;
-  var fn = pq.sendPrepare.bind(pq, statementName, text, nParams);
   var self = this;
+  var pq = this.pq;
+  var fn = function() {
+    return pq.sendPrepare(statementName, text, nParams);
+  }
   dispatchQuery(pq, fn, function(err) {
     if(err) return cb(err);
     self._awaitResult(cb);
