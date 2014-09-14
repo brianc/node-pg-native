@@ -22,9 +22,9 @@
   },
   "homepage": "https://github.com/brianc/node-pg-native",
   "dependencies": {
-    "libpq": "^0.4.1",
-    "pg-types": "^1.4.0",
-    "readable-stream": "^1.0.31"
+    "libpq": "0.5.1",
+    "pg-types": "1.4.0",
+    "readable-stream": "1.0.31"
   },
   "devDependencies": {
     "async": "^0.9.0",
