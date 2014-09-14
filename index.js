@@ -80,7 +80,8 @@ Client.prototype._read = function() {
       return this._readError();
     case 'PGRES_COMMAND_OK':
     case 'PGRES_TUPLES_OK':
-    case 'PGRES_COPY_OUT': {
+    case 'PGRES_COPY_OUT':
+    case 'PGRES_EMPTY_QUERY': {
       this.emit('result');
       break;
     }

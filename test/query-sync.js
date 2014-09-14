@@ -58,5 +58,11 @@ describe('query sync', function(done) {
     var rows = this.client.querySync('SELECT NOW()');
     assert(rows, 'should have returned rows');
     assert.equal(rows.length, 1);
-  })
+  });
+
+  it('supports empty query', function() {
+    var rows = this.client.querySync('');
+    assert(rows, 'should return rows');
+    assert.equal(rows.length, 0, 'should return no rows');
+  });
 });

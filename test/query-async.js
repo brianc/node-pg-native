@@ -77,4 +77,13 @@ describe('async query', function() {
   it('is still usable after an error', function(done) {
     this.client.query('SELECT NOW()', done);
   });
+
+  it('supports empty query', function(done) {
+    this.client.query('', function(err, rows) {
+      assert.ifError(err);
+      assert(rows, 'should return rows');
+      assert.equal(rows.length, 0, 'should return no rows');
+      done();
+    });
+  });
 });
