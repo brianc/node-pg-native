@@ -66,13 +66,9 @@ Client.prototype._read = function() {
   }
 
   //load our result object
-  pq.getResult();
-
-  //"read until results return null"
-  //or in our case ensure we only have one result
-  if(pq.getResult() && pq.resultStatus() != 'PGRES_COPY_OUT') {
-    return this._readError('Only one result at a time is accepted:' + pq.resultStatus());
-  }
+  while(pq.getResult()) {
+    if(pq.resultStatus() == 'PGRES_COPY_OUT')  break;
+  };
 
   var status = pq.resultStatus();
   switch(status) {
