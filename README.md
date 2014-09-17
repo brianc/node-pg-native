@@ -4,15 +4,17 @@
 
 High performance, native bindings between node.js and PostgreSQL via [libpq](https://github.com/brianc/node-libpq) with a clean and modern interface.
 
-### install
+## install
 
 ```bash
 $ npm i pg-native
 ```
 
-### use
+## use
 
-Please note the following code uses 0 [async flow control](https://github.com/caolan/async), [promise](https://github.com/kriskowal/q), or [generator](https://github.com/visionmedia/co) modules to make the 'callback-hell' go away. I figure this is more straight-forward as an example but _in general_ you probably want to use one of the aforementioned libraries to ease the pain.
+### async
+
+Please note the following code uses no [async flow control](https://github.com/caolan/async), [promise](https://github.com/kriskowal/q), or [generator](https://github.com/visionmedia/co) modules to make the _callback hell_ go away. I figure this is more straight-forward as an example but _in general_ you probably want to use one of the aforementioned approaches in production.
 
 ```js
 var Client = require('pg-native')
@@ -25,13 +27,13 @@ client.connect(function(err) {
   client.query('SELECT NOW() AS the_date', function(err, rows) {
     if(err) throw err
 
-    console.log(rows[0].the_date)
+    console.log(rows[0].the_date) //Tue Sep 16 2014 23:42:39 GMT-0400 (EDT)
 
     //parameterized statements
     client.query('SELECT $1::text as twitter_handle', ['@briancarlson'], function(err, rows) {
       if(err) throw err
 
-      console.log(rows[0].twitter_handle)
+      console.log(rows[0].twitter_handle) //@briancarlson
     })
 
     //prepared statements
@@ -42,14 +44,17 @@ client.connect(function(err) {
       client.execute('get_twitter', ['@briancarlson'], function(err, rows) {
         if(err) throw err
 
-        console.log(rows[0].twitter_handle)
+        console.log(rows[0].twitter_handle) //@briancarlson
 
         //execute the prepared, named statement again
         client.execute('get_twitter', ['@realcarrotfacts'], function(err, rows) {
           if(err) throw err
 
-          console.log(rows[0].twitter_handle)
-          client.end()
+          console.log(rows[0].twitter_handle) //@realcarrotfacts
+          
+          client.end(function() {
+            console.log('ended');
+          })
         })
       })
     })
@@ -58,7 +63,9 @@ client.connect(function(err) {
 
 ```
 
-Because `pg-native` is bound to libpq is it able to provide _sync_ operations for both connection and queries. This is exteremly convienent sometimes.
+### sync
+
+Because `pg-native` is bound to [libpq](https://github.com/brianc/node-libpq) it is able to provide _sync_ operations for both connection and queries. This is exteremly convienent sometimes.
 
 ```js
 var Client = require('pg-native')
@@ -84,50 +91,54 @@ var rows = client.execute('get_twitter', ['@realcarrotfacts'])
 console.log(rows[0].twitter_handle) //@realcarrotfacts
 ```
 
-### api
+## api
 
-__constructor Client()__
+#### `constructor Client()`
 
 Constructs and returns a new `Client` instance
 
-##### async functions
+### async functions
 
-__Client#connect(<params:string>, callback:function(err:Error))__
+##### `client.connect(<params:string>, callback:function(err:Error))`
 
 Connect to a PostgreSQL backend server. Params is in any format accepted by [libpq](http://www.postgresql.org/docs/9.3/static/libpq-connect.html#LIBPQ-CONNSTRING).  Returns an `Error` to the `callback` if the connection was unsuccessful.  `callback` is _required_ but `params` is optional.
 
-__Client#query(queryText:string, <values:string[]>, callback:Function(err:Error, rows:Object[]))__
+##### `client.query(queryText:string, <values:string[]>, callback:Function(err:Error, rows:Object[]))`
 
 Execute a query with the text of `queryText` and _optional_ parameters specified in the `values` array. All values are passed to the PostgreSQL backend server and executed as a parameterized statement.  The callback is _required_ and is called with an `Error` object in the event of a query error, otherwise it is passed an array of result objects.  Each element in this array is a dictionary of results with keys for column names and their values as the values for those columns.
 
 
-__Client#prepare(statementName:string, queryText:string, nParams:int, callback:Function(err:Error))__
+##### `client.prepare(statementName:string, queryText:string, nParams:int, callback:Function(err:Error))`
 
 Prepares a _named statement_ for later execution.  You _must_ supply the name of the statement via `statementName`, the command to prepare via `queryText` and the number of parameters in `queryText` via `nParams`. Calls the callback with an `Error` if there was an error.
 
-__Client#execute(statementName:string, <values:string[]>, callback:Function(err:err, rows:Object[]))__
+##### `client.execute(statementName:string, <values:string[]>, callback:Function(err:err, rows:Object[]))`
 
 Executes a previously prepared statement on this client with the name of `statementName`, passing it the optional array of query parameters as a `values` array.  The `callback` is mandatory and is called with and `Error` if the execution failed, or with the same array of results as would be passed to the callback of a `client.query` result.
 
-##### sync functions
+### sync functions
 
-__Client#connectSync(params:string)__
+##### `client.connectSync(params:string)`
 
 Connect to a PostgreSQL backend server. Params is in any format accepted by [libpq](http://www.postgresql.org/docs/9.3/static/libpq-connect.html#LIBPQ-CONNSTRING).  Throws an `Error` if the connection was unsuccessful.
 
-__Client#querySync(queryText:string, <values:string[]>)->results:Object[]__
+##### `client.querySync(queryText:string, <values:string[]>) -> results:Object[]`
 
 Executes a query with a text of `queryText` and optional parameters as `values`. Uses a parameterized query if `values` are supplied.  Throws an `Error` if the query fails, otherwise returns an array of results.
 
-__Client#prepareSync(statementName:string, queryText:string, nParams:int)__
+##### `client.prepareSync(statementName:string, queryText:string, nParams:int)`
 
 Prepares a name statement with name of `statementName` and a query text of `queryText`. You must specify the number of params in the query with the `nParams` argument.  Throws an `Error` if the statement is un-preparable, otherwise returns an array of results.
 
-__Client#executeSync(statementName:string, <values:string[]>)->results:Object[]
+##### `client.executeSync(statementName:string, <values:string[]>) -> results:Object[]`
 
 Executes a previously prepared statement on this client with the name of `statementName`, passing it the optional array of query paramters as a `values` array.  Throws an `Error` if the execution fails, otherwas returns an array of results.
 
-### license
+##### `client.end(<callback:Function()>`
+
+Ends the connection. Calls the _optional_ callback when the connection is terminated.
+
+## license
 
 The MIT License (MIT)
 
