@@ -3,13 +3,16 @@ var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 
 var Client = module.exports = function(types) {
-  EventEmitter.call(this);
-  if(!types) {
-    var pgTypes = require('pg-types')
-    types = pgTypes.getTypeParser.bind(pgTypes)
-  }
   if(!(this instanceof Client)) {
     return new Client(types);
+  }
+
+  EventEmitter.call(this);
+  if(!types) {
+    var pgTypes = require('pg-types');
+    types = pgTypes.getTypeParser.bind(pgTypes);
+  } else {
+    types = types.getTypeParser.bind(types);
   }
   this.pq = new Libpq();
   this.types = types;
@@ -45,6 +48,7 @@ Client.prototype._readError = function(message) {
 };
 
 Client.prototype._stopReading = function() {
+  if(!this._reading) return;
   this._reading = false;
   this.pq.stopReader();
   this.pq.removeListener('readable', this._read);
