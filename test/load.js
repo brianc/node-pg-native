@@ -10,7 +10,7 @@ var execute = function(x, done) {
         cb()
       });
     };
-    async.timesSeries(50, query, ok(done, function() {
+    async.timesSeries(20, query, ok(done, function() {
       client.end();
       done()
     }));
@@ -21,9 +21,8 @@ describe('Load tests', function() {
     async.times(1, execute, done);
   });
 
-  it.only('multiple client and many queries', function(done) {
+  it('multiple client and many queries', function(done) {
     this.timeout(5000);
-    //this segfaults or throws 'Abort trap: 6'
-    async.times(10, execute, done);
+    async.times(20, execute, done);
   });
 });
