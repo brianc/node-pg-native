@@ -116,7 +116,7 @@ client.connect(function(err) {
 })
 
 var client2 = new Client()
-client2.connect('postgresql://user:password@host:5432/database?param=value`, function(err) {
+client2.connect('postgresql://user:password@host:5432/database?param=value', function(err) {
   if(err) throw err
   
   console.log('connected with connection string!')
