@@ -48,6 +48,9 @@ describe('async workflow', function() {
           assert.equal(rows.length, 1)
           self.client.query('COPY test TO stdout', ok(done, function() {
             var output = self.client.getCopyStream();
+
+            //pump the stream
+            output.read();
             output.pipe(concat(function(err, res) {
               done();
             }));
