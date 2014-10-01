@@ -4,16 +4,15 @@ var ok = require('okay');
 
 var execute = function(x, done) {
   var client = new Client();
-  client.connect(ok(done, function() {
-    var query = function(n, cb) {
-      client.query('SELECT $1::int as num', [n], function() {
-        cb()
-      });
-    };
-    async.timesSeries(20, query, ok(done, function() {
-      client.end();
-      done()
-    }));
+  client.connectSync()
+  var query = function(n, cb) {
+    client.query('SELECT $1::int as num', [n], function(err) {
+      cb(err)
+    });
+  };
+  return async.timesSeries(5, query, ok(done, function() {
+    client.end();
+    done()
   }));
 }
 describe('Load tests', function() {
@@ -22,7 +21,6 @@ describe('Load tests', function() {
   });
 
   it('multiple client and many queries', function(done) {
-    this.timeout(5000);
     async.times(20, execute, done);
   });
 });
