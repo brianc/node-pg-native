@@ -103,7 +103,11 @@ Constructs and returns a new `Client` instance
 
 - __`client.connect(<params:string>, callback:function(err:Error))`__
 
-Connect to a PostgreSQL backend server. __params__ is _optional_ and is in any format accepted by [libpq](http://www.postgresql.org/docs/9.3/static/libpq-connect.html#LIBPQ-CONNSTRING).  Returns an `Error` to the `callback` if the connection was unsuccessful.  `callback` is _required_.
+Connect to a PostgreSQL backend server. 
+
+__params__ is _optional_ and is in any format accepted by [libpq](http://www.postgresql.org/docs/9.3/static/libpq-connect.html#LIBPQ-CONNSTRING).  The connection string is passed _as is_ to libpq, so any format supported by libpq will be supported here.  Likewise, any format _unsupported_ by libpq will not work.  If no parameters are supplied libpq will use [environment variables](http://www.postgresql.org/docs/9.3/static/libpq-envars.html) to connect.
+
+Returns an `Error` to the `callback` if the connection was unsuccessful.  `callback` is _required_.
 
 ##### example
 
