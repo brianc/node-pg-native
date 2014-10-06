@@ -74,20 +74,20 @@ var client = new Client();
 client.connectSync();
 
 //text queries
-var rows = client.query('SELECT NOW() AS the_date')
+var rows = client.querySync('SELECT NOW() AS the_date')
 console.log(rows[0].the_date) //Tue Sep 16 2014 23:42:39 GMT-0400 (EDT)
 
 //parameterized queries
-var rows = client.query('SELECT $1::text as twitter_handle', ['@briancarlson'])
+var rows = client.querySync('SELECT $1::text as twitter_handle', ['@briancarlson'])
 console.log(rows[0].twitter_handle) //@briancarlson
 
 //prepared statements
-client.prepare('get_twitter', 'SELECT $1::text as twitter_handle', 1)
+client.prepareSync('get_twitter', 'SELECT $1::text as twitter_handle', 1)
 
-var rows = client.execute('get_twitter', ['@briancarlson'])
+var rows = client.executeSync('get_twitter', ['@briancarlson'])
 console.log(rows[0].twitter_handle) //@briancarlson
 
-var rows = client.execute('get_twitter', ['@realcarrotfacts'])
+var rows = client.executeSync('get_twitter', ['@realcarrotfacts'])
 console.log(rows[0].twitter_handle) //@realcarrotfacts
 ```
 
