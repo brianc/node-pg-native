@@ -164,7 +164,7 @@ var client = new Client()
 client.connection(function(err) {
   if(err) throw err
   
-  client.prepare('saved_statement', 'SELECT $1::text as name`, 1, function(err) {
+  client.prepare('prepared_statement', 'SELECT $1::text as name', 1, function(err) {
     if(err) throw err
     
     console.log('statement prepared')
