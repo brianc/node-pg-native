@@ -73,7 +73,7 @@ Client.prototype._read = function() {
   //load our result object
   while(pq.getResult()) {
     if(pq.resultStatus() == 'PGRES_COPY_OUT')  break;
-  };
+  }
 
   var status = pq.resultStatus();
   switch(status) {
@@ -101,9 +101,8 @@ Client.prototype._read = function() {
 Client.prototype._startReading = function() {
   if(this._reading) return;
   this._reading = true;
-  this.pq.setNonBlocking(true);
-  this.pq.startReader();
   this.pq.on('readable', this._read);
+  this.pq.startReader();
 };
 
 var throwIfError = function(pq) {
@@ -137,7 +136,6 @@ var mapResults = function(pq, types) {
 };
 
 Client.prototype._awaitResult = function(cb) {
-  this._startReading();
   var self = this;
   var onError = function(e) {
     self.removeListener('error', onError);
@@ -152,6 +150,7 @@ Client.prototype._awaitResult = function(cb) {
   };
   this.once('error', onError);
   this.once('result', onResult);
+  this._startReading();
 }
 
 //wait for the writable socket to drain
@@ -184,46 +183,49 @@ Client.prototype.dispatchQuery = function(pq, fn, cb) {
 
 Client.prototype.query = function(text, values, cb) {
   var queryFn;
-  var pq = this.pq
-  var types = this.types
+
   if(typeof values == 'function') {
     cb = values;
-    queryFn = function() { return pq.sendQuery(text); };
+    queryFn = function() { return self.pq.sendQuery(text); };
   } else {
-    queryFn = function() { return pq.sendQueryParams(text, values); };
+    queryFn = function() { return self.pq.sendQueryParams(text, values); };
   }
 
   var self = this
+
   self._awaitResult(function(err) {
-    return cb(err, err ? null : mapResults(pq, types));
+    return cb(err, err ? null : mapResults(self.pq, self.types));
   });
-  self.dispatchQuery(pq, queryFn, function(err) {
+
+  self.dispatchQuery(self.pq, queryFn, function(err) {
     if(err) return cb(err);
   });
 };
 
 Client.prototype.prepare = function(statementName, text, nParams, cb) {
   var self = this;
-  var pq = this.pq;
   var fn = function() {
-    return pq.sendPrepare(statementName, text, nParams);
+    return self.pq.sendPrepare(statementName, text, nParams);
   }
-  self.dispatchQuery(pq, fn, function(err) {
+  self._awaitResult(cb);
+  self.dispatchQuery(self.pq, fn, function(err) {
     if(err) return cb(err);
-    self._awaitResult(cb);
   });
 };
 
 Client.prototype.execute = function(statementName, parameters, cb) {
-  var pq = this.pq;
   var self = this;
-  var types = this.types;
-  var fn = pq.sendQueryPrepared.bind(pq, statementName, parameters);
-  self.dispatchQuery(pq, fn, function(err, rows) {
+
+  var fn = function() {
+    return self.pq.sendQueryPrepared(statementName, parameters);
+  };
+
+  self._awaitResult(function(err) {
+    return cb(err, err ? null : mapResults(self.pq, self.types));
+  });
+
+  self.dispatchQuery(self.pq, fn, function(err, rows) {
     if(err) return cb(err);
-    self._awaitResult(function(err) {
-      return cb(err, err ? null : mapResults(pq, types));
-    });
   });
 };
 
