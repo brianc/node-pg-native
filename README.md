@@ -14,8 +14,6 @@ $ npm i pg-native
 
 ### async
 
-Please note the following code uses no [async flow control](https://github.com/caolan/async), [promise](https://github.com/kriskowal/q), or [generator](https://github.com/visionmedia/co) modules to make the _callback hell_ go away. I figure this is more straight-forward as an example but _in general_ you probably want to use one of the aforementioned approaches in production.
-
 ```js
 var Client = require('pg-native')
 
@@ -53,7 +51,7 @@ client.connect(function(err) {
           console.log(rows[0].twitter_handle) //@realcarrotfacts
           
           client.end(function() {
-            console.log('ended');
+            console.log('ended')
           })
         })
       })
@@ -65,13 +63,13 @@ client.connect(function(err) {
 
 ### sync
 
-Because `pg-native` is bound to [libpq](https://github.com/brianc/node-libpq) it is able to provide _sync_ operations for both connection and queries. This is exteremly convienent sometimes.
+Because `pg-native` is bound to [libpq](https://github.com/brianc/node-libpq) it is able to provide _sync_ operations for both connecting and queries. This is a bad idea in _non-blocking systems_ such as web servers, but is exteremly convienent in scripts and bootstrapping applications - much the same way `fs.readFileSync` comes in handy.
 
 ```js
 var Client = require('pg-native')
 
-var client = new Client();
-client.connectSync();
+var client = new Client()
+client.connectSync()
 
 //text queries
 var rows = client.querySync('SELECT NOW() AS the_date')
@@ -166,7 +164,7 @@ var client = new Client()
 client.connection(function(err) {
   if(err) throw err
   
-  client.prepare('saved_statement', 'SELECT $1::text as name`, 1, function(err) {
+  client.prepare('prepared_statement', 'SELECT $1::text as name', 1, function(err) {
     if(err) throw err
     
     console.log('statement prepared')
@@ -234,6 +232,21 @@ Prepares a name statement with name of `statementName` and a query text of `quer
 - __`client.executeSync(statementName:string, <values:string[]>) -> results:Object[]`__
 
 Executes a previously prepared statement on this client with the name of `statementName`, passing it the optional array of query paramters as a `values` array.  Throws an `Error` if the execution fails, otherwas returns an array of results.
+
+## testing
+
+```sh
+$ npm test
+```
+
+To run the tests you need a PostgreSQL backend reachable by typing `psql` with no connection parameters in your terminal. The tests use [environment variables](http://www.postgresql.org/docs/9.3/static/libpq-envars.html) to connect to the backend. 
+
+An example of supplying a specific host the tests:
+
+```sh
+$ PGHOST=blabla.mydatabasehost.com npm test
+```
+
 
 ## license
 
