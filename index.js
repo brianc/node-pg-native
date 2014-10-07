@@ -20,6 +20,9 @@ var Client = module.exports = function(types) {
   this._read = this._read.bind(this);
   var self = this;
 
+  //lazy start the reader if notifications are listened for
+  //this way if you only run sync queries you wont block
+  //the event loop artificially
   this.on('newListener', function(event) {
     if(event != 'notification') return;
     self._startReading();
@@ -87,7 +90,7 @@ Client.prototype._read = function() {
       break;
     }
     default:
-      return this._readError('unrecognized cmmand status: ' + status);
+      return this._readError('unrecognized command status: ' + status);
   }
 
   var notice;
@@ -151,29 +154,30 @@ Client.prototype._awaitResult = function(cb) {
   this.once('error', onError);
   this.once('result', onResult);
   this._startReading();
-}
+};
 
 //wait for the writable socket to drain
 Client.prototype.waitForDrain = function(pq, cb) {
   var res = pq.flush();
-  if(res === 0) return setImmediate(cb);
-  if(res === -1) return setImmediate(function() {
-    cb(pq.errorMessage());
-  })
+  //res of 0 is success
+  if(res === 0) return cb();
+
+  //res of -1 is failure
+  if(res === -1) return cb(pq.errorMessage());
+
+  //otherwise outgoing message didn't flush to socket
+  //wait for it to flush and try again
   var self = this
   //you cannot read & write on a socket at the same time
-  self._stopReading();
   return pq.writable(function() {
-    self.waitForDrain(pq, function() {
-      self._startReading();
-      cb();
-    });
+    self.waitForDrain(pq, cb)
   });
 };
 
 //send an async query to libpq and wait for it to
 //finish writing query text to the socket
 Client.prototype.dispatchQuery = function(pq, fn, cb) {
+  this._stopReading();
   var success = pq.setNonBlocking(true);
   if(!success) return cb(new Error('Unable to set non-blocking to true'));
   var sent = fn();
@@ -193,12 +197,12 @@ Client.prototype.query = function(text, values, cb) {
 
   var self = this
 
-  self._awaitResult(function(err) {
-    return cb(err, err ? null : mapResults(self.pq, self.types));
-  });
-
   self.dispatchQuery(self.pq, queryFn, function(err) {
     if(err) return cb(err);
+
+    self._awaitResult(function(err) {
+      return cb(err, err ? null : mapResults(self.pq, self.types));
+    });
   });
 };
 
@@ -207,9 +211,10 @@ Client.prototype.prepare = function(statementName, text, nParams, cb) {
   var fn = function() {
     return self.pq.sendPrepare(statementName, text, nParams);
   }
-  self._awaitResult(cb);
+
   self.dispatchQuery(self.pq, fn, function(err) {
     if(err) return cb(err);
+    self._awaitResult(cb);
   });
 };
 
@@ -220,12 +225,11 @@ Client.prototype.execute = function(statementName, parameters, cb) {
     return self.pq.sendQueryPrepared(statementName, parameters);
   };
 
-  self._awaitResult(function(err) {
-    return cb(err, err ? null : mapResults(self.pq, self.types));
-  });
-
   self.dispatchQuery(self.pq, fn, function(err, rows) {
     if(err) return cb(err);
+    self._awaitResult(function(err) {
+      return cb(err, err ? null : mapResults(self.pq, self.types));
+    });
   });
 };
 
