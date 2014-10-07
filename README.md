@@ -235,6 +235,21 @@ Prepares a name statement with name of `statementName` and a query text of `quer
 
 Executes a previously prepared statement on this client with the name of `statementName`, passing it the optional array of query paramters as a `values` array.  Throws an `Error` if the execution fails, otherwas returns an array of results.
 
+## testing
+
+```sh
+$ npm test
+```
+
+To run the tests you need a PostgreSQL backend reachable by typing `psql` with no connection parameters in your terminal. The tests use [environment variables](http://www.postgresql.org/docs/9.3/static/libpq-envars.html) to connect to the backend. 
+
+An example of supplying a specific host the tests:
+
+```sh
+$ PGHOST=blabla.mydatabasehost.com npm test
+```
+
+
 ## license
 
 The MIT License (MIT)
