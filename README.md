@@ -53,7 +53,7 @@ client.connect(function(err) {
           console.log(rows[0].twitter_handle) //@realcarrotfacts
           
           client.end(function() {
-            console.log('ended');
+            console.log('ended')
           })
         })
       })
@@ -70,8 +70,8 @@ Because `pg-native` is bound to [libpq](https://github.com/brianc/node-libpq) it
 ```js
 var Client = require('pg-native')
 
-var client = new Client();
-client.connectSync();
+var client = new Client()
+client.connectSync()
 
 //text queries
 var rows = client.querySync('SELECT NOW() AS the_date')
