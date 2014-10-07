@@ -14,8 +14,6 @@ $ npm i pg-native
 
 ### async
 
-Please note the following code uses no [async flow control](https://github.com/caolan/async), [promise](https://github.com/kriskowal/q), or [generator](https://github.com/visionmedia/co) modules to make the _callback hell_ go away. I figure this is more straight-forward as an example but _in general_ you probably want to use one of the aforementioned approaches in production.
-
 ```js
 var Client = require('pg-native')
 
@@ -65,7 +63,7 @@ client.connect(function(err) {
 
 ### sync
 
-Because `pg-native` is bound to [libpq](https://github.com/brianc/node-libpq) it is able to provide _sync_ operations for both connection and queries. This is exteremly convienent sometimes.
+Because `pg-native` is bound to [libpq](https://github.com/brianc/node-libpq) it is able to provide _sync_ operations for both connecting and queries. This is a bad idea in _non-blocking systems_ such as web servers, but is exteremly convienent in scripts and bootstrapping applications - much the same way `fs.readFileSync` comes in handy.
 
 ```js
 var Client = require('pg-native')
