@@ -1,6 +1,7 @@
 var Libpq = require('libpq');
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
+var assert = require('assert');
 
 var Client = module.exports = function(types) {
   if(!(this instanceof Client)) {
@@ -238,6 +239,16 @@ Client.prototype.getCopyStream = function() {
   this.pq.setNonBlocking(true);
   this._stopReading();
   return new CopyStream(this.pq);
+};
+
+//cancel a currently executing query
+Client.prototype.cancel = function(cb) {
+  assert(cb, 'Callback is required');
+  //result is either true or a string containing an error
+  var result = this.pq.cancel();
+  return setImmediate(function() {
+    cb(result === true ? undefined : new Error(result));
+  });
 };
 
 Client.prototype.querySync = function(text, values) {

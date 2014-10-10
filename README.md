@@ -207,12 +207,30 @@ Ends the connection. Calls the _optional_ callback when the connection is termin
 
 ```js
 var client = new Client()
-client.connection(function(err) {
+client.connect(function(err) {
   if(err) throw err
   client.end(function() {
     console.log('client ended') // client ended
   })
 })
+```
+
+- __`client.cancel(callback:function(err))`__
+
+Cancels the active query on the client. Callback receives an error if there was an error _sending_ the cancel request.
+
+##### example
+```js
+var client = new Client()
+client.connectSync()
+//sleep for 100 seconds
+client.query('select pg_sleep(100)', function(err) {
+  console.log(err) // [Error: ERROR: canceling statement due to user request]
+})
+client.cancel(function(err) {
+  console.log('cancel dispatched')
+})
+
 ```
 
 ### sync functions
