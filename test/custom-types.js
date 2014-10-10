@@ -12,7 +12,9 @@ var types = {
 
 describe('Custom type parser', function() {
   it('is used by client', function(done) {
-    var client = new Client(types);
+    var client = new Client(function(pq) {
+      return [{when: 'blah'}]
+    });
     client.connectSync();
     var rows = client.querySync('SELECT NOW() AS when');
     assert.equal(rows[0].when, 'blah');

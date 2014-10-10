@@ -2,21 +2,15 @@ var Libpq = require('libpq');
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 var assert = require('assert');
+var types = require('pg-types');
 
-var Client = module.exports = function(types) {
+var Client = module.exports = function(resultMapper) {
   if(!(this instanceof Client)) {
-    return new Client(types);
+    return new Client(resultMapper);
   }
 
   EventEmitter.call(this);
-  if(!types) {
-    var pgTypes = require('pg-types');
-    types = pgTypes.getTypeParser.bind(pgTypes);
-  } else {
-    types = types.getTypeParser.bind(types);
-  }
   this.pq = new Libpq();
-  this.types = types;
   this._reading = false;
   this._read = this._read.bind(this);
   var self = this;
@@ -27,7 +21,13 @@ var Client = module.exports = function(types) {
   this.on('newListener', function(event) {
     if(event != 'notification') return;
     self._startReading();
-  })
+  });
+
+  //allow mapping override for node-postgres
+  //and custom type/result mapping
+  if(resultMapper) {
+    this._mapResults = resultMapper;
+  }
 };
 
 util.inherits(Client, EventEmitter);
@@ -39,6 +39,30 @@ Client.prototype.connect = function(params, cb) {
 Client.prototype.connectSync = function(params) {
   this.pq.connectSync(params);
 };
+
+Client.prototype._mapResults = function(pq) {
+  var rows = [];
+  var rowCount = pq.ntuples();
+  var colCount = pq.nfields();
+  for(var i = 0; i < rowCount; i++) {
+    var row = {};
+    rows.push(row);
+    for(var j = 0; j < colCount; j++) {
+      var rawValue = pq.getvalue(i, j);
+      var value = rawValue;
+      if(rawValue == '') {
+        if(pq.getisnull()) {
+          value = null;
+        }
+      } else {
+        value = types.getTypeParser(pq.ftype(j))(rawValue);
+      }
+      row[pq.fname(j)] = value;
+    }
+  }
+  return rows;
+  
+}
 
 Client.prototype.end = function(cb) {
   this._stopReading();
@@ -116,29 +140,6 @@ var throwIfError = function(pq) {
   }
 }
 
-var mapResults = function(pq, types) {
-  var rows = [];
-  var rowCount = pq.ntuples();
-  var colCount = pq.nfields();
-  for(var i = 0; i < rowCount; i++) {
-    var row = {};
-    rows.push(row);
-    for(var j = 0; j < colCount; j++) {
-      var rawValue = pq.getvalue(i, j);
-      var value = rawValue;
-      if(rawValue == '') {
-        if(pq.getisnull()) {
-          value = null;
-        }
-      } else {
-        value = types(pq.ftype(j))(rawValue);
-      }
-      row[pq.fname(j)] = value;
-    }
-  }
-  return rows;
-};
-
 Client.prototype._awaitResult = function(cb) {
   var self = this;
   var onError = function(e) {
@@ -202,7 +203,7 @@ Client.prototype.query = function(text, values, cb) {
     if(err) return cb(err);
 
     self._awaitResult(function(err) {
-      return cb(err, err ? null : mapResults(self.pq, self.types));
+      return cb(err, err ? null : self._mapResults(self.pq, self.types));
     });
   });
 };
@@ -229,7 +230,7 @@ Client.prototype.execute = function(statementName, parameters, cb) {
   self.dispatchQuery(self.pq, fn, function(err, rows) {
     if(err) return cb(err);
     self._awaitResult(function(err) {
-      return cb(err, err ? null : mapResults(self.pq, self.types));
+      return cb(err, err ? null : self._mapResults(self.pq, self.types));
     });
   });
 };
@@ -256,7 +257,7 @@ Client.prototype.querySync = function(text, values) {
   var pq = this.pq;
   pq[values ? 'execParams' : 'exec'].call(pq, text, values);
   throwIfError(this.pq);
-  return mapResults(pq, this.types);
+  return this._mapResults(pq, this.types);
 };
 
 Client.prototype.prepareSync = function(statementName, text, nParams) {
@@ -267,5 +268,5 @@ Client.prototype.prepareSync = function(statementName, text, nParams) {
 Client.prototype.executeSync = function(statementName, parameters) {
   this.pq.execPrepared(statementName, parameters);
   throwIfError(this.pq);
-  return mapResults(this.pq, this.types);
+  return this._mapResults(this.pq, this.types);
 };
