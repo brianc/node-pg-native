@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/brianc/node-pg-native.svg?branch=master)](https://travis-ci.org/brianc/node-pg-native)
 
-High performance, native bindings between node.js and PostgreSQL via [libpq](https://github.com/brianc/node-libpq) with a clean and modern interface.
+High performance native bindings between node.js and PostgreSQL via [libpq](https://github.com/brianc/node-libpq) with a simple API.
 
 ## install
 
