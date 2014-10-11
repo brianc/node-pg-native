@@ -2,7 +2,7 @@ var Client = require('../');
 var assert = require('assert');
 
 describe('client with arrayMode', function() {
-  it('returns result as array', function() {
+  it('returns result as array', function(done) {
     var client = new Client({arrayMode: true});
     client.connectSync();
     client.querySync('CREATE TEMP TABLE blah(name TEXT)');
@@ -14,5 +14,12 @@ describe('client with arrayMode', function() {
     assert.equal(row.length, 1);
     assert.equal(row[0], 'brian');
     assert.equal(rows[1][0], 'aaron');
+
+    client.query("SELECT 'brian', null", function(err, res) {
+      assert.ifError(err);
+      assert.strictEqual(res[0][0], 'brian')
+      assert.strictEqual(res[0][1], null)
+      done();
+    });
   });
 });

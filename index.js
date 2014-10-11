@@ -55,7 +55,7 @@ Client.prototype._mapResults = function(pq) {
       var rawValue = pq.getvalue(i, j);
       var value = rawValue;
       if(rawValue == '') {
-        if(pq.getisnull()) {
+        if(pq.getisnull(i, j)) {
           value = null;
         }
       } else {
@@ -69,7 +69,6 @@ Client.prototype._mapResults = function(pq) {
     }
   }
   return rows;
-  
 }
 
 Client.prototype.end = function(cb) {
