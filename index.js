@@ -4,15 +4,18 @@ var util = require('util');
 var assert = require('assert');
 var types = require('pg-types');
 
-var Client = module.exports = function(resultMapper) {
+var Client = module.exports = function(config) {
   if(!(this instanceof Client)) {
-    return new Client(resultMapper);
+    return new Client(config);
   }
+
+  config = config || {};
 
   EventEmitter.call(this);
   this.pq = new Libpq();
   this._reading = false;
   this._read = this._read.bind(this);
+  this._types = config.types || types;
   var self = this;
 
   //lazy start the reader if notifications are listened for
@@ -23,11 +26,6 @@ var Client = module.exports = function(resultMapper) {
     self._startReading();
   });
 
-  //allow mapping override for node-postgres
-  //and custom type/result mapping
-  if(resultMapper) {
-    this._mapResults = resultMapper;
-  }
 };
 
 util.inherits(Client, EventEmitter);
@@ -55,7 +53,7 @@ Client.prototype._mapResults = function(pq) {
           value = null;
         }
       } else {
-        value = types.getTypeParser(pq.ftype(j))(rawValue);
+        value = this._types.getTypeParser(pq.ftype(j))(rawValue);
       }
       row[pq.fname(j)] = value;
     }
