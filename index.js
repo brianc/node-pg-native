@@ -21,7 +21,7 @@ var Client = module.exports = function(config) {
 
   //allow config to specify returning results
   //as an array of values instead of a hash
-  this._arrayMode = config.arrayMode || false;
+  this.arrayMode = config.arrayMode || false;
   var self = this;
 
   //lazy start the reader if notifications are listened for
@@ -49,7 +49,7 @@ Client.prototype._mapResults = function(pq) {
   var rowCount = pq.ntuples();
   var colCount = pq.nfields();
   for(var i = 0; i < rowCount; i++) {
-    var row = this._arrayMode ? [] : {};
+    var row = this.arrayMode ? [] : {};
     rows.push(row);
     for(var j = 0; j < colCount; j++) {
       var rawValue = pq.getvalue(i, j);
@@ -61,7 +61,7 @@ Client.prototype._mapResults = function(pq) {
       } else {
         value = this._types.getTypeParser(pq.ftype(j))(rawValue);
       }
-      if(this._arrayMode) {
+      if(this.arrayMode) {
         row.push(value);
       } else {
         row[pq.fname(j)] = value;
