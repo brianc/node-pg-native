@@ -12,3 +12,12 @@ describe('connection error', function() {
     });
   });
 });
+
+describe('connect & disconnect', function() {
+  it('does not seg fault', function(done) {
+    var client = new Client();
+    client.connect(function() {
+      client.end(done);
+    });
+  });
+});
