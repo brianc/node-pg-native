@@ -31,7 +31,6 @@ var Client = module.exports = function(config) {
     if(event != 'notification') return;
     self._startReading();
   });
-
 };
 
 util.inherits(Client, EventEmitter);
@@ -277,3 +276,6 @@ Client.prototype.executeSync = function(statementName, parameters) {
   throwIfError(this.pq);
   return this._mapResults(this.pq, this.types);
 };
+
+//export the version number so we can check it in node-postgres
+module.exports.version = require('./package.json').version
