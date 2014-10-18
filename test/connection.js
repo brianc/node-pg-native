@@ -13,11 +13,13 @@ describe('connection error', function() {
   });
 });
 
-describe('connect & disconnect', function() {
-  it('does not seg fault', function(done) {
+describe('reading while not connected', function() {
+  it('does not seg fault but does throw execption', function() {
     var client = new Client();
-    client.connect(function() {
-      client.end(done);
-    });
+    assert.throws(function() {
+      client.on('notification', function(msg) {
+
+      });
+    })
   });
 });
