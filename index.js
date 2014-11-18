@@ -43,8 +43,7 @@ Client.prototype.connectSync = function(params) {
   this.pq.connectSync(params);
 };
 
-Client.prototype._mapResults = function(pq) {
-  var rows = [];
+Client.prototype._parseResults = function(pq, rows) {
   var rowCount = pq.ntuples();
   var colCount = pq.nfields();
   for(var i = 0; i < rowCount; i++) {
@@ -95,6 +94,8 @@ Client.prototype._read = function() {
   //read waiting data from the socket
   //e.g. clear the pending 'select'
   if(!pq.consumeInput()) {
+    //if consumeInput returns false
+    //than a read error has been encountered
     return this._readError();
   }
 
@@ -105,9 +106,14 @@ Client.prototype._read = function() {
   }
 
   //load our result object
+  var rows = []
   while(pq.getResult()) {
+    if(pq.resultStatus() == 'PGRES_TUPLES_OK') {
+      this._parseResults(this.pq, rows);
+    }
     if(pq.resultStatus() == 'PGRES_COPY_OUT')  break;
   }
+
 
   var status = pq.resultStatus();
   switch(status) {
@@ -117,7 +123,7 @@ Client.prototype._read = function() {
     case 'PGRES_TUPLES_OK':
     case 'PGRES_COPY_OUT':
     case 'PGRES_EMPTY_QUERY': {
-      this.emit('result');
+      this.emit('result', rows);
       break;
     }
     default:
@@ -154,10 +160,10 @@ Client.prototype._awaitResult = function(cb) {
     cb(e);
   };
 
-  var onResult = function() {
+  var onResult = function(rows) {
     self.removeListener('error', onError);
     self.removeListener('result', onResult);
-    cb(null);
+    cb(null, rows);
   };
   this.once('error', onError);
   this.once('result', onResult);
@@ -208,9 +214,7 @@ Client.prototype.query = function(text, values, cb) {
   self.dispatchQuery(self.pq, queryFn, function(err) {
     if(err) return cb(err);
 
-    self._awaitResult(function(err) {
-      return cb(err, err ? null : self._mapResults(self.pq, self.types));
-    });
+    self._awaitResult(cb)
   });
 };
 
@@ -235,9 +239,7 @@ Client.prototype.execute = function(statementName, parameters, cb) {
 
   self.dispatchQuery(self.pq, fn, function(err, rows) {
     if(err) return cb(err);
-    self._awaitResult(function(err) {
-      return cb(err, err ? null : self._mapResults(self.pq, self.types));
-    });
+    self._awaitResult(cb)
   });
 };
 
@@ -263,7 +265,7 @@ Client.prototype.querySync = function(text, values) {
   var pq = this.pq;
   pq[values ? 'execParams' : 'exec'].call(pq, text, values);
   throwIfError(this.pq);
-  return this._mapResults(pq, this.types);
+  return this._parseResults(pq, []);
 };
 
 Client.prototype.prepareSync = function(statementName, text, nParams) {
@@ -274,7 +276,7 @@ Client.prototype.prepareSync = function(statementName, text, nParams) {
 Client.prototype.executeSync = function(statementName, parameters) {
   this.pq.execPrepared(statementName, parameters);
   throwIfError(this.pq);
-  return this._mapResults(this.pq, this.types);
+  return this._parseResults(this.pq, []);
 };
 
 //export the version number so we can check it in node-postgres
