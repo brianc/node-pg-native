@@ -1,6 +1,6 @@
 {
   "name": "pg-native",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "A slightly nicer interface to Postgres over node-libpq",
   "main": "index.js",
   "scripts": {
