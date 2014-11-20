@@ -6,9 +6,16 @@ High performance native bindings between node.js and PostgreSQL via [libpq](http
 
 ## install
 
-You need PostgreSQL client headers installed.  On OS X `brew install postgres`.  On Ubuntu `apt-get install libpq-dev`.  Afterwards `pg_config` should be in your path. Then...
+You need PostgreSQL client libraries & tools installed. An easy way to check is to type `pg_config`. If `pg_config` is in your path, you should be good to go. If it's not in your path you'll need to consult operating specific instructions on how to go about getting it there.
 
-```bash
+Some easy ways I've done it in the past:
+
+- On OS X: `brew install postgres`
+- On Ubuntu: `apt-get install libpq-dev`
+
+Afterwards `pg_config` should be in your path. Then...
+
+```sh
 $ npm i pg-native
 ```
 
