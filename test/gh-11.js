@@ -8,14 +8,16 @@ var ok = require('okay');
 
 var pool = Pool({
   max: 20,
-  idleTimeoutMillis: 30000,
+  idleTimeoutMillis: 50,
   create: function(cb) {
+    console.log('NEW CLIENT')
     var client = new Client();
     client.connectSync();
     client.querySync('CREATE TEMP TABLE stats(jsDoc TEXT)');
     cb(null, client);
   },
   destroy: function(client) {
+    console.log('DESTROY')
     client.end();
   }
 });
@@ -38,9 +40,9 @@ var fakeSocket = function() {
 
   var emitData = function() {
     setTimeout(function() {
-      fake.emit('data', randomTextBuffer(rnd(200, 1000)))
+      fake.emit('data', randomTextBuffer(rnd(200, 10000)))
       emitData()
-    }, rnd(500, 2000))
+    }, rnd(5000, 10000))
   }
   emitData()
   return fake
@@ -59,6 +61,8 @@ server.on('connection', function(socket) {
     }))
   })
 })
+
+if(module.parent) return;
 
 var max = parseInt(process.env.MAX || 1000);
 var count = 0
