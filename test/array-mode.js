@@ -19,7 +19,7 @@ describe('client with arrayMode', function() {
       assert.ifError(err);
       assert.strictEqual(res[0][0], 'brian')
       assert.strictEqual(res[0][1], null)
-      done();
+      client.end(done);
     });
   });
 });
