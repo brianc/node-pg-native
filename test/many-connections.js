@@ -39,5 +39,8 @@ describe('many connections', function() {
     test(20, 20);
     test(20, 20);
     test(20, 20);
+    test(30, 10);
+    test(30, 10);
+    test(30, 10);
   });
 });
