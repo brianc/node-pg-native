@@ -11,7 +11,9 @@ describe('async prepare', function() {
       client.prepare('get_now' + x, 'SELECT NOW()', 0, done)
     };
 
-    async.timesSeries(10, exec, cb);
+    async.timesSeries(10, exec, ok(cb, function() {
+      client.end(cb);
+    }));
   };
 
   var t = function(n) {
@@ -35,7 +37,9 @@ describe('async execute', function() {
     var exec = function(x, cb) {
       client.execute('get_now', [], cb);
     };
-    async.timesSeries(10, exec, cb);
+    async.timesSeries(10, exec, ok(cb, function() {
+      client.end(cb);
+    }));
   };
 
 

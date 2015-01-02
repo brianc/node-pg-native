@@ -8,6 +8,10 @@ describe('huge async query', function() {
     this.client.connect(done);
   });
 
+  after(function(done) {
+    this.client.end(done);
+  });
+
   it('works', function(done) {
     var params = [''];
     var len = 100000;

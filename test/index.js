@@ -24,7 +24,8 @@ describe('connectSync', function() {
   });
 
   it('works with args', function() {
-    Client().connectSync('host=localhost');
+    var args = 'host=' + (process.env.PGHOST || 'localhost')
+    Client().connectSync(args);
   });
 
   it('throws if bad host', function() {

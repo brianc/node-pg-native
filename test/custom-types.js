@@ -26,7 +26,7 @@ describe('Custom type parser', function() {
     assert.equal(rows[0].when, 'blah');
     client.query('SELECT NOW() as when', ok(function(rows) {
       assert.equal(rows[0].when, 'blah');
-      done();
+      client.end(done);
     }));
   });
 });
