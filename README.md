@@ -12,6 +12,7 @@ Some ways I've done it in the past:
 
 - On OS X: `brew install postgres`
 - On Ubuntu: `apt-get install libpq-dev`
+- On RHEL/CentOS: `yum install postgresql-devel`
 - On Windows:
  1. Install Visual Studio C++ (successfully built with Express 2010). Express is free.
  2. Add your Postgre Installation's `bin` folder to the system path (i.e. `C:\Program Files\PostgreSQL\9.3\bin`).
