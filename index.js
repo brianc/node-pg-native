@@ -22,6 +22,9 @@ var Client = module.exports = function(config) {
   //allow config to specify returning results
   //as an array of values instead of a hash
   this.arrayMode = config.arrayMode || false;
+  //allow config to specify returning results
+  //with raw values and caller need to call parse function explicitly
+  this.lazyMode = config.lazyMode || false;
   var self = this;
 
   //lazy start the reader if notifications are listened for
@@ -52,15 +55,31 @@ Client.prototype._parseResults = function(pq, rows) {
     for(var j = 0; j < colCount; j++) {
       var rawValue = pq.getvalue(i, j);
       var value = rawValue;
+      var parser = null;
       if(rawValue == '') {
         if(pq.getisnull(i, j)) {
-          value = null;
+          value = rawValue = null;
         }
       } else {
-        value = this._types.getTypeParser(pq.ftype(j))(rawValue);
+        parser = this._types.getTypeParser(pq.ftype(j))
+        if (!this.lazyMode) {
+          value = parser(rawValue)
+        }
       }
       if(this.arrayMode) {
         row.push(value);
+      } else if (this.lazyMode) {
+        var name = pq.fname(j);
+        row[name] = rawValue;
+        row['parse_' + name] = function(rawValue, parser) {
+          return function() {
+            if(rawValue != '' && rawValue != null) {
+              return parser(rawValue);
+            } else {
+              return rawValue;
+            }
+          }
+        }(rawValue, parser)
       } else {
         row[pq.fname(j)] = value;
       }
