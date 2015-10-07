@@ -6,4 +6,4 @@ node_js:
 before_install:
   - npm install npm --global
 env:
-  - PGUSER=postgres PGDATABASE=postgres
+  - CC=clang CXX=clang++ npm_config_clang=1 PGUSER=postgres PGDATABASE=postgres
