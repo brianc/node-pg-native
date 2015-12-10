@@ -15,8 +15,9 @@ Some ways I've done it in the past:
 - On RHEL/CentOS: `yum install postgresql-devel`
 - On Windows:
  1. Install Visual Studio C++ (successfully built with Express 2010). Express is free.
- 2. Add your Postgre Installation's `bin` folder to the system path (i.e. `C:\Program Files\PostgreSQL\9.3\bin`).
- 3. Make sure that both `libpq.dll` and `pg_config.exe` are in that folder.
+ 2. Install PostgreSQL (`http://www.postgresql.org/download/windows/`)
+ 3. Add your Postgre Installation's `bin` folder to the system path (i.e. `C:\Program Files\PostgreSQL\9.3\bin`).
+ 4. Make sure that both `libpq.dll` and `pg_config.exe` are in that folder.
 
 Afterwards `pg_config` should be in your path. Then...
 
