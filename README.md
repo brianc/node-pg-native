@@ -176,7 +176,7 @@ Prepares a _named statement_ for later execution.  You _must_ supply the name of
 
 ```js
 var client = new Client()
-client.connection(function(err) {
+client.connect(function(err) {
   if(err) throw err
   
   client.prepare('prepared_statement', 'SELECT $1::text as name', 1, function(err) {
@@ -198,7 +198,7 @@ Executes a previously prepared statement on this client with the name of `statem
 
 ```js
 var client = new Client()
-client.connection(function(err) {
+client.connect(function(err) {
   if(err) throw err
   
   client.prepare('i_like_beans', 'SELECT $1::text as beans', 1, function(err) {
