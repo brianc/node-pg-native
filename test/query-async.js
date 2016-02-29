@@ -2,6 +2,7 @@ var Client = require('../');
 var assert = require('assert');
 var async = require('async');
 var ok = require('okay');
+var PgTypes = require('pg-types');
 
 describe('async query', function() {
   before(function(done) {
@@ -14,6 +15,7 @@ describe('async query', function() {
 
   after(function(done) {
     this.client.end(done);
+    PgTypes.setTypeParser(23, 'text', null);
   });
 
   it('simple query works', function(done) {
@@ -85,5 +87,19 @@ describe('async query', function() {
       assert.equal(rows.length, 0, 'should return no rows');
       done();
     });
+  });
+
+  it('returns an error if there was a error parsingRows', function(done) {
+    PgTypes.setTypeParser(23, 'text', function () {
+      throw new Error("Type Parser Error")
+    });
+    var runErrorQuery = function(n, done) {
+      this.client.query('SELECT 1', function(err) {
+        assert(err instanceof Error, 'Should return an error instance');
+        PgTypes.setTypeParser(23, 'text', null);
+        done();
+      });
+    }.bind(this);
+    async.timesSeries(3, runErrorQuery, done);
   });
 });

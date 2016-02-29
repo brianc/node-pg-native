@@ -75,9 +75,11 @@ Client.prototype.end = function(cb) {
   if(cb) setImmediate(cb);
 };
 
-Client.prototype._readError = function(message) {
+Client.prototype._readError = function(err) {
   this._stopReading();
-  var err = new Error(message || this.pq.errorMessage());
+  if(!(err instanceof Error)) {
+    err = new Error(err || this.pq.errorMessage());
+  }
   this.emit('error', err);
 };
 
@@ -109,7 +111,11 @@ Client.prototype._read = function() {
   var rows = []
   while(pq.getResult()) {
     if(pq.resultStatus() == 'PGRES_TUPLES_OK') {
-      this._parseResults(this.pq, rows);
+      try {
+        this._parseResults(this.pq, rows);
+      } catch (err) {
+        return this._readError(err);
+      }
     }
     if(pq.resultStatus() == 'PGRES_COPY_OUT')  break;
   }
