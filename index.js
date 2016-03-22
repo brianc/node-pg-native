@@ -111,7 +111,7 @@ Client.prototype._read = function() {
     if(pq.resultStatus() == 'PGRES_TUPLES_OK') {
       this._parseResults(this.pq, rows);
     }
-    if(pq.resultStatus() == 'PGRES_COPY_OUT')  break;
+    if(pq.resultStatus() == 'PGRES_COPY_OUT' || pq.resultStatus() == 'PGRES_COPY_BOTH') break;
   }
 
 
@@ -122,6 +122,7 @@ Client.prototype._read = function() {
     case 'PGRES_COMMAND_OK':
     case 'PGRES_TUPLES_OK':
     case 'PGRES_COPY_OUT':
+    case 'PGRES_COPY_BOTH':
     case 'PGRES_EMPTY_QUERY': {
       this.emit('result', rows);
       break;
