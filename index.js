@@ -4,6 +4,7 @@ var util = require('util')
 var assert = require('assert')
 var types = require('pg-types')
 var buildResult = require('./lib/build-result')
+var CopyStream = require('./lib/copy-stream')
 
 var Client = module.exports = function (config) {
   if (!(this instanceof Client)) {
@@ -23,14 +24,13 @@ var Client = module.exports = function (config) {
   // allow config to specify returning results
   // as an array of values instead of a hash
   this.arrayMode = config.arrayMode || false
-  var self = this
 
   // lazy start the reader if notifications are listened for
   // this way if you only run sync queries you wont block
   // the event loop artificially
-  this.on('newListener', function (event) {
+  this.on('newListener', (event) => {
     if (event !== 'notification') return
-    self._startReading()
+    this._startReading()
   })
 }
 
@@ -43,6 +43,100 @@ Client.prototype.connect = function (params, cb) {
 Client.prototype.connectSync = function (params) {
   this.pq.connectSync(params)
 }
+
+Client.prototype.query = function (text, values, cb) {
+  var queryFn
+
+  if (typeof values === 'function') {
+    cb = values
+    queryFn = function () { return self.pq.sendQuery(text) }
+  } else {
+    queryFn = function () { return self.pq.sendQueryParams(text, values) }
+  }
+
+  var self = this
+
+  self._dispatchQuery(self.pq, queryFn, function (err) {
+    if (err) return cb(err)
+
+    self._awaitResult(cb)
+  })
+}
+
+Client.prototype.prepare = function (statementName, text, nParams, cb) {
+  var self = this
+  var fn = function () {
+    return self.pq.sendPrepare(statementName, text, nParams)
+  }
+
+  self._dispatchQuery(self.pq, fn, function (err) {
+    if (err) return cb(err)
+    self._awaitResult(cb)
+  })
+}
+
+Client.prototype.execute = function (statementName, parameters, cb) {
+  var self = this
+
+  var fn = function () {
+    return self.pq.sendQueryPrepared(statementName, parameters)
+  }
+
+  self._dispatchQuery(self.pq, fn, function (err, rows) {
+    if (err) return cb(err)
+    self._awaitResult(cb)
+  })
+}
+
+Client.prototype.getCopyStream = function () {
+  this.pq.setNonBlocking(true)
+  this._stopReading()
+  return new CopyStream(this.pq)
+}
+
+// cancel a currently executing query
+Client.prototype.cancel = function (cb) {
+  assert(cb, 'Callback is required')
+  // result is either true or a string containing an error
+  var result = this.pq.cancel()
+  return setImmediate(function () {
+    cb(result === true ? undefined : new Error(result))
+  })
+}
+
+Client.prototype.querySync = function (text, values) {
+  if (values) {
+    this.pq.execParams(text, values)
+  } else {
+    this.pq.exec(text)
+  }
+
+  throwIfError(this.pq)
+  const result = buildResult(this.pq, this._types, this.arrayMode)
+  return result.rows
+}
+
+Client.prototype.prepareSync = function (statementName, text, nParams) {
+  this.pq.prepare(statementName, text, nParams)
+  throwIfError(this.pq)
+}
+
+Client.prototype.executeSync = function (statementName, parameters) {
+  this.pq.execPrepared(statementName, parameters)
+  throwIfError(this.pq)
+  return buildResult(this.pq, this._types, this.arrayMode).rows
+}
+
+Client.prototype.escapeLiteral = function (value) {
+  return this.pq.escapeLiteral(value)
+}
+
+Client.prototype.escapeIdentifier = function (value) {
+  return this.pq.escapeIdentifier(value)
+}
+
+// export the version number so we can check it in node-postgres
+module.exports.version = require('./package.json').version
 
 Client.prototype.end = function (cb) {
   this._stopReading()
@@ -74,11 +168,11 @@ Client.prototype._emitResult = function (pq) {
       break
 
     case 'PGRES_TUPLES_OK':
+    case 'PGRES_COMMAND_OK':
       const result = this._consumeQueryResults(this.pq)
       this.emit('result', result)
       break
 
-    case 'PGRES_COMMAND_OK':
     case 'PGRES_COPY_OUT':
     case 'PGRES_COPY_BOTH':
     case 'PGRES_EMPTY_QUERY': {
@@ -153,7 +247,6 @@ var throwIfError = function (pq) {
 }
 
 Client.prototype._awaitResult = function (cb) {
-
   let err
   var onError = function (e) {
     err = e
@@ -162,6 +255,7 @@ Client.prototype._awaitResult = function (cb) {
   let resultCount = 0
   let rows, results
 
+  // this weirdness is to support multi-statement queries
   var onResult = function (result) {
     if (resultCount === 0) {
       results = result
@@ -195,7 +289,7 @@ Client.prototype._awaitResult = function (cb) {
 }
 
 // wait for the writable socket to drain
-Client.prototype.waitForDrain = function (pq, cb) {
+Client.prototype._waitForDrain = function (pq, cb) {
   var res = pq.flush()
   // res of 0 is success
   if (res === 0) return cb()
@@ -208,112 +302,17 @@ Client.prototype.waitForDrain = function (pq, cb) {
   var self = this
   // you cannot read & write on a socket at the same time
   return pq.writable(function () {
-    self.waitForDrain(pq, cb)
+    self._waitForDrain(pq, cb)
   })
 }
 
 // send an async query to libpq and wait for it to
 // finish writing query text to the socket
-Client.prototype.dispatchQuery = function (pq, fn, cb) {
+Client.prototype._dispatchQuery = function (pq, fn, cb) {
   this._stopReading()
   var success = pq.setNonBlocking(true)
   if (!success) return cb(new Error('Unable to set non-blocking to true'))
   var sent = fn()
   if (!sent) return cb(new Error(pq.errorMessage() || 'Something went wrong dispatching the query'))
-  this.waitForDrain(pq, cb)
+  this._waitForDrain(pq, cb)
 }
-
-Client.prototype.query = function (text, values, cb) {
-  var queryFn
-
-  if (typeof values === 'function') {
-    cb = values
-    queryFn = function () { return self.pq.sendQuery(text) }
-  } else {
-    queryFn = function () { return self.pq.sendQueryParams(text, values) }
-  }
-
-  var self = this
-
-  self.dispatchQuery(self.pq, queryFn, function (err) {
-    if (err) return cb(err)
-
-    self._awaitResult(cb)
-  })
-}
-
-Client.prototype.prepare = function (statementName, text, nParams, cb) {
-  var self = this
-  var fn = function () {
-    return self.pq.sendPrepare(statementName, text, nParams)
-  }
-
-  self.dispatchQuery(self.pq, fn, function (err) {
-    if (err) return cb(err)
-    self._awaitResult(cb)
-  })
-}
-
-Client.prototype.execute = function (statementName, parameters, cb) {
-  var self = this
-
-  var fn = function () {
-    return self.pq.sendQueryPrepared(statementName, parameters)
-  }
-
-  self.dispatchQuery(self.pq, fn, function (err, rows) {
-    if (err) return cb(err)
-    self._awaitResult(cb)
-  })
-}
-
-var CopyStream = require('./lib/copy-stream')
-Client.prototype.getCopyStream = function () {
-  this.pq.setNonBlocking(true)
-  this._stopReading()
-  return new CopyStream(this.pq)
-}
-
-// cancel a currently executing query
-Client.prototype.cancel = function (cb) {
-  assert(cb, 'Callback is required')
-  // result is either true or a string containing an error
-  var result = this.pq.cancel()
-  return setImmediate(function () {
-    cb(result === true ? undefined : new Error(result))
-  })
-}
-
-Client.prototype.querySync = function (text, values) {
-  if (values) {
-    this.pq.execParams(text, values)
-  } else {
-    this.pq.exec(text)
-  }
-
-  throwIfError(this.pq)
-  const result = buildResult(this.pq, this._types, this.arrayMode)
-  return result.rows
-}
-
-Client.prototype.prepareSync = function (statementName, text, nParams) {
-  this.pq.prepare(statementName, text, nParams)
-  throwIfError(this.pq)
-}
-
-Client.prototype.executeSync = function (statementName, parameters) {
-  this.pq.execPrepared(statementName, parameters)
-  throwIfError(this.pq)
-  return buildResult(this.pq, this._types, this.arrayMode).rows
-}
-
-Client.prototype.escapeLiteral = function (value) {
-  return this.pq.escapeLiteral(value)
-}
-
-Client.prototype.escapeIdentifier = function (value) {
-  return this.pq.escapeIdentifier(value)
-}
-
-// export the version number so we can check it in node-postgres
-module.exports.version = require('./package.json').version
