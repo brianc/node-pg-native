@@ -6,14 +6,17 @@ var ok = require('okay')
 describe('async query', function () {
   before(function (done) {
     this.client = Client()
-    this.client.connect(function (err) {
-      if (err) return done(err)
-      return done()
-    })
+    this.client.connect(done)
   })
 
   after(function (done) {
     this.client.end(done)
+  })
+
+  it('can execute many prepared statements on a client', function (done) {
+    async.timesSeries(20, (i, cb) => {
+      this.client.query('SELECT $1::text as name', ['brianc'], cb)
+    }, done)
   })
 
   it('simple query works', function (done) {
@@ -75,14 +78,23 @@ describe('async query', function () {
   })
 
   it('is still usable after an error', function (done) {
-    this.client.query('SELECT NOW()', done)
+    const runErrorQuery = (_, cb) => {
+      this.client.query('SELECT LKJSDJFLSDKFJ', (err) => {
+        assert(err instanceof Error, 'Should return an error instance')
+        cb(null, err)
+      })
+    }
+    async.timesSeries(3, runErrorQuery, (err, res) => {
+      assert(!err)
+      assert.equal(res.length, 3)
+      this.client.query('SELECT NOW()', done)
+    })
   })
 
   it('supports empty query', function (done) {
     this.client.query('', function (err, rows) {
       assert.ifError(err)
-      assert(rows, 'should return rows')
-      assert.equal(rows.length, 0, 'should return no rows')
+      assert(rows === undefined)
       done()
     })
   })

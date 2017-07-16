@@ -2,6 +2,7 @@ var Client = require('../')
 var assert = require('assert')
 
 describe('multiple commands in a single query', function () {
+  return
   before(function (done) {
     this.client = new Client()
     this.client.connect(done)

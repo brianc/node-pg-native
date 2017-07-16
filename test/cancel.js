@@ -7,7 +7,7 @@ describe('cancel query', function () {
     client.connectSync()
     client.query('SELECT pg_sleep(100);', function (err) {
       assert(err instanceof Error)
-      done()
+      client.end(done)
     })
     client.cancel(function (err) {
       assert.ifError(err)

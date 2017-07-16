@@ -76,7 +76,6 @@ Client.prototype.end = function (cb) {
 }
 
 Client.prototype._readError = function (message) {
-  this._stopReading()
   var err = new Error(message || this.pq.errorMessage())
   this.emit('error', err)
 }
@@ -86,6 +85,49 @@ Client.prototype._stopReading = function () {
   this._reading = false
   this.pq.stopReader()
   this.pq.removeListener('readable', this._read)
+}
+
+class Result {
+  constructor (command, rowCount) {
+    this.command = command
+    this.rowCount = rowCount
+    this.rows = []
+  }
+}
+
+Client.prototype._consumeQueryResults = function (pq) {
+  const command = pq.cmdStatus().split(' ')[0]
+  const rowCount = parseInt(pq.cmdTuples(), 10)
+  const nfields = pq.nfields()
+  const result = new Result(command, rowCount)
+  this._parseResults(pq, result.rows)
+  return result
+}
+
+Client.prototype._emitResult = function (pq) {
+  var status = pq.resultStatus()
+  switch (status) {
+    case 'PGRES_FATAL_ERROR':
+      this._readError()
+      break
+
+    case 'PGRES_TUPLES_OK':
+      const result = this._consumeQueryResults(this.pq)
+      this.emit('result', result.rows)
+      break
+
+    case 'PGRES_COMMAND_OK':
+    case 'PGRES_COPY_OUT':
+    case 'PGRES_COPY_BOTH':
+    case 'PGRES_EMPTY_QUERY': {
+      break
+    }
+
+    default:
+      this._readError('unrecognized command status: ' + status)
+      break
+  }
+  return status
 }
 
 // called when libpq is readable
@@ -106,29 +148,22 @@ Client.prototype._read = function () {
   }
 
   // load our result object
-  var rows = []
-  while (pq.getResult()) {
-    if (pq.resultStatus() === 'PGRES_TUPLES_OK') {
-      this._parseResults(this.pq, rows)
-    }
-    if (pq.resultStatus() === 'PGRES_COPY_OUT' || pq.resultStatus() === 'PGRES_COPY_BOTH') break
-  }
 
-  var status = pq.resultStatus()
-  switch (status) {
-    case 'PGRES_FATAL_ERROR':
-      return this._readError()
-    case 'PGRES_COMMAND_OK':
-    case 'PGRES_TUPLES_OK':
-    case 'PGRES_COPY_OUT':
-    case 'PGRES_COPY_BOTH':
-    case 'PGRES_EMPTY_QUERY': {
-      this.emit('result', rows)
+  while (pq.getResult()) {
+    const resultStatus = this._emitResult(this.pq)
+
+    // if the command initiated copy mode we need to break out of the read loop
+    // so a substream can begin to read copy data
+    if (resultStatus === 'PGRES_COPY_BOTH' || resultStatus === 'PGRES_COPY_OUT') {
       break
     }
-    default:
-      return this._readError('unrecognized command status: ' + status)
+
+    if (pq.isBusy()) {
+      return
+    }
   }
+
+  this.emit('readyForQuery')
 
   var notice = this.pq.notifies()
   while (notice) {
@@ -154,20 +189,41 @@ var throwIfError = function (pq) {
 }
 
 Client.prototype._awaitResult = function (cb) {
-  var self = this
+
+  let err
   var onError = function (e) {
-    self.removeListener('error', onError)
-    self.removeListener('result', onResult)
-    cb(e)
+    err = e
   }
 
+  let resultCount = 0
+  let results
+
   var onResult = function (rows) {
-    self.removeListener('error', onError)
-    self.removeListener('result', onResult)
-    cb(null, rows)
+    if (resultCount === 0) {
+      results = rows
+    } else if (resultCount === 1) {
+      results = [results, rows]
+    } else {
+      results.push(rows)
+    }
+    resultCount++
   }
+
+  const removeListeners = () => {
+    this.removeListener('error', onError)
+    this.removeListener('result', onResult)
+    this.removeListener('readyForQuery', readyForQuery)
+  }
+
+  const readyForQuery = () => {
+    removeListeners()
+    cb(err, results)
+  }
+
   this.once('error', onError)
-  this.once('result', onResult)
+  this.once('readyForQuery', readyForQuery)
+  this.on('result', onResult)
+
   this._startReading()
 }
 

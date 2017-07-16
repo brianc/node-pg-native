@@ -40,7 +40,6 @@ describe('async workflow', function () {
     this.client.querySync('CREATE TEMP TABLE test(name text, age int)')
     this.client.query("INSERT INTO test(name, age) VALUES('brian', 32)", ok(done, function () {
       self.client.querySync('COPY test FROM stdin')
-      console.log('got stream')
       var input = self.client.getCopyStream()
       input.write(Buffer.from('Aaron\t30\n', 'utf8'))
       input.end(function () {
