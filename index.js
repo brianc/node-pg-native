@@ -278,7 +278,7 @@ Client.prototype._awaitResult = function (cb) {
 
   const readyForQuery = () => {
     removeListeners()
-    cb(err, rows, results)
+    cb(err, rows || [], results)
   }
 
   this.once('error', onError)

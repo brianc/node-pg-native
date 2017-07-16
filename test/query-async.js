@@ -94,7 +94,9 @@ describe('async query', function () {
   it('supports empty query', function (done) {
     this.client.query('', function (err, rows) {
       assert.ifError(err)
-      assert(rows === undefined)
+      assert(Array.isArray(rows))
+      console.log('rows', rows)
+      assert(rows.length === 0)
       done()
     })
   })
