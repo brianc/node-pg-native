@@ -24,6 +24,9 @@ var Client = module.exports = function (config) {
   // allow config to specify returning results
   // as an array of values instead of a hash
   this.arrayMode = config.arrayMode || false
+  this._resultCount = 0
+  this._rows = undefined
+  this._results = undefined
 
   // lazy start the reader if notifications are listened for
   // this way if you only run sync queries you wont block
@@ -32,6 +35,10 @@ var Client = module.exports = function (config) {
     if (event !== 'notification') return
     this._startReading()
   })
+
+  this.on('_queryError', this._onQueryError.bind(this))
+  this.on('result', this._onResult.bind(this))
+  this.on('readyForQuery', this._onReadyForQuery.bind(this))
 }
 
 util.inherits(Client, EventEmitter)
@@ -146,7 +153,11 @@ Client.prototype.end = function (cb) {
 
 Client.prototype._readError = function (message) {
   var err = new Error(message || this.pq.errorMessage())
-  this.emit('error', err)
+  if (this._queryCallback) {
+    this.emit('_queryError', err)
+  } else {
+    this.emit('error', err)
+  }
 }
 
 Client.prototype._stopReading = function () {
@@ -247,45 +258,8 @@ var throwIfError = function (pq) {
 }
 
 Client.prototype._awaitResult = function (cb) {
-  let err
-  var onError = function (e) {
-    err = e
-  }
-
-  let resultCount = 0
-  let rows, results
-
-  // this weirdness is to support multi-statement queries
-  var onResult = function (result) {
-    if (resultCount === 0) {
-      results = result
-      rows = result.rows
-    } else if (resultCount === 1) {
-      results = [results, result]
-      rows = [rows, result.rows]
-    } else {
-      results.push(result)
-      rows.push(result.rows)
-    }
-    resultCount++
-  }
-
-  const removeListeners = () => {
-    this.removeListener('error', onError)
-    this.removeListener('result', onResult)
-    this.removeListener('readyForQuery', readyForQuery)
-  }
-
-  const readyForQuery = () => {
-    removeListeners()
-    cb(err, rows || [], results)
-  }
-
-  this.once('error', onError)
-  this.once('readyForQuery', readyForQuery)
-  this.on('result', onResult)
-
-  this._startReading()
+  this._queryCallback = cb
+  return this._startReading()
 }
 
 // wait for the writable socket to drain
@@ -315,4 +289,46 @@ Client.prototype._dispatchQuery = function (pq, fn, cb) {
   var sent = fn()
   if (!sent) return cb(new Error(pq.errorMessage() || 'Something went wrong dispatching the query'))
   this._waitForDrain(pq, cb)
+}
+
+Client.prototype._onQueryError = function (err) {
+  this._queryError = err
+}
+
+Client.prototype._onResult = function (result) {
+  if (this._resultCount === 0) {
+    this._results = result
+    this._rows = result.rows
+  } else if (this._resultCount === 1) {
+    this._results = [this._results, result]
+    this._rows = [this._rows, result.rows]
+  } else {
+    this._results.push(result)
+    this._rows.push(result.rows)
+  }
+  this._resultCount++
+}
+
+Client.prototype._onReadyForQuery = function () {
+  // remove instance callback
+  const cb = this._queryCallback
+  this._queryCallback = undefined
+
+  // remove instance query error
+  const err = this._queryError
+  this._queryError = undefined
+
+  // remove instance rows
+  const rows = this._rows
+  this._rows = undefined
+
+  // remove instance results
+  const results = this._results
+  this._results = undefined
+
+  this._resultCount = 0
+
+  if (cb) {
+    cb(err, rows || [], results)
+  }
 }
