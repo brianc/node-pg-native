@@ -28,30 +28,32 @@ describe('simple LISTEN/NOTIFY', function () {
   })
 })
 
-describe('async LISTEN/NOTIFY', function () {
-  before(function (done) {
-    var client = this.client = new Client()
-    client.connect(done)
-  })
+if (!process.env.TRAVIS_CI) {
+  describe('async LISTEN/NOTIFY', function () {
+    before(function (done) {
+      var client = this.client = new Client()
+      client.connect(done)
+    })
 
-  it('works', function (done) {
-    var client = this.client
-    var count = 0
-    var check = function () {
-      count++
-      if (count >= 2) return done()
-    }
-    client.on('notification', check)
-    client.query('LISTEN test', ok(done, function () {
-      notify('test', 'bot')
-      client.query('SELECT pg_sleep(.05)', ok(done, function () {
-        check()
+    it('works', function (done) {
+      var client = this.client
+      var count = 0
+      var check = function () {
+        count++
+        if (count >= 2) return done()
+      }
+      client.on('notification', check)
+      client.query('LISTEN test', ok(done, function () {
+        notify('test', 'bot')
+        client.query('SELECT pg_sleep(.05)', ok(done, function () {
+          check()
+        }))
+        notify('test', 'bot')
       }))
-      notify('test', 'bot')
-    }))
-  })
+    })
 
-  after(function (done) {
-    this.client.end(done)
+    after(function (done) {
+      this.client.end(done)
+    })
   })
-})
+}

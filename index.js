@@ -186,7 +186,7 @@ Client.prototype._emitResult = function (pq) {
       break
 
     case 'PGRES_COPY_OUT':
-    case 'PGRES_COPY_BOTH':  {
+    case 'PGRES_COPY_BOTH': {
       break
     }
 
