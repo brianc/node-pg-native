@@ -180,13 +180,13 @@ Client.prototype._emitResult = function (pq) {
 
     case 'PGRES_TUPLES_OK':
     case 'PGRES_COMMAND_OK':
+    case 'PGRES_EMPTY_QUERY':
       const result = this._consumeQueryResults(this.pq)
       this.emit('result', result)
       break
 
     case 'PGRES_COPY_OUT':
-    case 'PGRES_COPY_BOTH':
-    case 'PGRES_EMPTY_QUERY': {
+    case 'PGRES_COPY_BOTH':  {
       break
     }
 
