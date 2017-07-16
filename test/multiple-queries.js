@@ -25,12 +25,16 @@ describe('multiple commands in a single query', function () {
     var txt = 'CREATE TEMP TABLE boom(age int);'
     txt += 'INSERT INTO boom(age) VALUES(10);'
     txt += 'SELECT * FROM boom;'
-    this.client.query(txt, function (err, rows) {
+    this.client.query(txt, function (err, rows, results) {
       assert.ifError(err)
       assert.equal(rows.length, 3)
       assert.equal(rows[0].length, 0)
       assert.equal(rows[1].length, 0)
       assert.equal(rows[2][0].age, 10)
+
+      assert.equal(results[0].command, 'CREATE')
+      assert.equal(results[1].command, 'INSERT')
+      assert.equal(results[2].command, 'SELECT')
       done()
     })
   })
