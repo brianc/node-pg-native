@@ -3,6 +3,7 @@ var EventEmitter = require('events').EventEmitter
 var util = require('util')
 var assert = require('assert')
 var types = require('pg-types')
+var buildResult = require('./lib/build-result')
 
 var Client = module.exports = function (config) {
   if (!(this instanceof Client)) {
@@ -43,32 +44,6 @@ Client.prototype.connectSync = function (params) {
   this.pq.connectSync(params)
 }
 
-Client.prototype._parseResults = function (pq, rows) {
-  var rowCount = pq.ntuples()
-  var colCount = pq.nfields()
-  for (var i = 0; i < rowCount; i++) {
-    var row = this.arrayMode ? [] : {}
-    rows.push(row)
-    for (var j = 0; j < colCount; j++) {
-      var rawValue = pq.getvalue(i, j)
-      var value = rawValue
-      if (rawValue === '') {
-        if (pq.getisnull(i, j)) {
-          value = null
-        }
-      } else {
-        value = this._types.getTypeParser(pq.ftype(j))(rawValue)
-      }
-      if (this.arrayMode) {
-        row.push(value)
-      } else {
-        row[pq.fname(j)] = value
-      }
-    }
-  }
-  return rows
-}
-
 Client.prototype.end = function (cb) {
   this._stopReading()
   this.pq.finish()
@@ -87,21 +62,8 @@ Client.prototype._stopReading = function () {
   this.pq.removeListener('readable', this._read)
 }
 
-class Result {
-  constructor (command, rowCount) {
-    this.command = command
-    this.rowCount = rowCount
-    this.rows = []
-  }
-}
-
 Client.prototype._consumeQueryResults = function (pq) {
-  const command = pq.cmdStatus().split(' ')[0]
-  const rowCount = parseInt(pq.cmdTuples(), 10)
-  const nfields = pq.nfields()
-  const result = new Result(command, rowCount)
-  this._parseResults(pq, result.rows)
-  return result
+  return buildResult(pq, this._types, this.arrayMode)
 }
 
 Client.prototype._emitResult = function (pq) {
@@ -113,7 +75,7 @@ Client.prototype._emitResult = function (pq) {
 
     case 'PGRES_TUPLES_OK':
       const result = this._consumeQueryResults(this.pq)
-      this.emit('result', result.rows)
+      this.emit('result', result)
       break
 
     case 'PGRES_COMMAND_OK':
@@ -158,6 +120,8 @@ Client.prototype._read = function () {
       break
     }
 
+    // if reading multiple results, sometimes the following results might cause
+    // a blocking read. in this scenario yield back off the reader until libpq is readable
     if (pq.isBusy()) {
       return
     }
@@ -196,15 +160,18 @@ Client.prototype._awaitResult = function (cb) {
   }
 
   let resultCount = 0
-  let results
+  let rows, results
 
-  var onResult = function (rows) {
+  var onResult = function (result) {
     if (resultCount === 0) {
-      results = rows
+      results = result
+      rows = result.rows
     } else if (resultCount === 1) {
-      results = [results, rows]
+      results = [results, result]
+      rows = [rows, result.rows]
     } else {
-      results.push(rows)
+      results.push(result)
+      rows.push(result.rows)
     }
     resultCount++
   }
@@ -217,7 +184,7 @@ Client.prototype._awaitResult = function (cb) {
 
   const readyForQuery = () => {
     removeListeners()
-    cb(err, results)
+    cb(err, rows, results)
   }
 
   this.once('error', onError)
@@ -325,7 +292,8 @@ Client.prototype.querySync = function (text, values) {
   }
 
   throwIfError(this.pq)
-  return this._parseResults(this.pq, [])
+  const result = buildResult(this.pq, this._types, this.arrayMode)
+  return result.rows
 }
 
 Client.prototype.prepareSync = function (statementName, text, nParams) {
@@ -336,7 +304,7 @@ Client.prototype.prepareSync = function (statementName, text, nParams) {
 Client.prototype.executeSync = function (statementName, parameters) {
   this.pq.execPrepared(statementName, parameters)
   throwIfError(this.pq)
-  return this._parseResults(this.pq, [])
+  return buildResult(this.pq, this._types, this.arrayMode).rows
 }
 
 Client.prototype.escapeLiteral = function (value) {
