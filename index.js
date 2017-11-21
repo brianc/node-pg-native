@@ -36,7 +36,6 @@ var Client = module.exports = function (config) {
     this._startReading()
   })
 
-  this.on('_queryError', this._onQueryError.bind(this))
   this.on('result', this._onResult.bind(this))
   this.on('readyForQuery', this._onReadyForQuery.bind(this))
 }
@@ -153,11 +152,7 @@ Client.prototype.end = function (cb) {
 
 Client.prototype._readError = function (message) {
   var err = new Error(message || this.pq.errorMessage())
-  if (this._queryCallback) {
-    this.emit('_queryError', err)
-  } else {
-    this.emit('error', err)
-  }
+  this.emit('error', err)
 }
 
 Client.prototype._stopReading = function () {
@@ -175,7 +170,7 @@ Client.prototype._emitResult = function (pq) {
   var status = pq.resultStatus()
   switch (status) {
     case 'PGRES_FATAL_ERROR':
-      this._readError()
+      this._queryError = new Error(this.pq.resultErrorMessage())
       break
 
     case 'PGRES_TUPLES_OK':
@@ -289,10 +284,6 @@ Client.prototype._dispatchQuery = function (pq, fn, cb) {
   var sent = fn()
   if (!sent) return cb(new Error(pq.errorMessage() || 'Something went wrong dispatching the query'))
   this._waitForDrain(pq, cb)
-}
-
-Client.prototype._onQueryError = function (err) {
-  this._queryError = err
 }
 
 Client.prototype._onResult = function (result) {
