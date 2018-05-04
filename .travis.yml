@@ -1,9 +1,8 @@
 language: node_js
 node_js:
+  - "lts/argon"
   - "lts/boron"
   - "8"
   - "10"
-before_install:
-  - npm install npm --global
 env:
   - TRAVIS_CI=true CC=clang CXX=clang++ npm_config_clang=1 PGUSER=postgres PGDATABASE=postgres
