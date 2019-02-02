@@ -46,9 +46,8 @@ if (!process.env.TRAVIS_CI) {
       client.query('LISTEN test', ok(done, function () {
         notify('test', 'bot')
         client.query('SELECT pg_sleep(.05)', ok(done, function () {
-          check()
+          notify('test', 'bot')
         }))
-        notify('test', 'bot')
       }))
     })
 
