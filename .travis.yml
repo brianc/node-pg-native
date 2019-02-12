@@ -4,5 +4,6 @@ node_js:
   - "lts/boron"
   - "8"
   - "10"
+  - "11"
 env:
   - TRAVIS_CI=true CC=clang CXX=clang++ npm_config_clang=1 PGUSER=postgres PGDATABASE=postgres
