@@ -10,7 +10,7 @@ You need PostgreSQL client libraries & tools installed. An easy way to check is 
 
 Some ways I've done it in the past:
 
-- On OS X: `brew install postgres`
+- On macOS: `brew install libpq`
 - On Ubuntu/Debian: `apt-get install libpq-dev g++ make`
 - On RHEL/CentOS: `yum install postgresql-devel`
 - On Windows:
