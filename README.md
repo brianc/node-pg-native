@@ -4,6 +4,25 @@
 
 High performance native bindings between node.js and PostgreSQL via [libpq](https://github.com/brianc/node-libpq) with a simple API.
 
+# ⚠ WARNING ⚠
+Passing a Buffer to the native bindings is not binary safe. See [Issue #83](https://github.com/brianc/node-pg-native/issues/83) for more information on the subject.
+
+Examples:  
+
+
+Unsafe and results in data loss:  
+```
+await pg.query('INSERT INTO customers (password) VALUES($1))', [passwordBuffer])
+```  
+Safe method using base64 encoding:  
+```
+await pg.query('INSERT INTO customers (password) VALUES(decode($1, \'base64\'))', [passwordBuffer.toString('base64')])
+```
+
+
+
+
+
 ## install
 
 You need PostgreSQL client libraries & tools installed. An easy way to check is to type `pg_config`. If `pg_config` is in your path, you should be good to go. If it's not in your path you'll need to consult operating specific instructions on how to go about getting it there.
