@@ -9,7 +9,7 @@ describe('connection errors', function () {
     client.connectSync()
     client.query('SELECT pg_terminate_backend(pg_backend_pid())', assert.fail)
     client.on('error', function (err) {
-      assert(/^server closed the connection unexpectedly/.test(err.message))
+      assert(err)
       assert.strictEqual(client.pq.resultErrorFields().sqlState, '57P01')
       client.end()
       done()

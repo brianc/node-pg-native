@@ -23,6 +23,17 @@ describe('query sync', function (done) {
     assert.equal(rows[0].name, 'Brian')
   })
 
+  it('throws when second argument is not an array', function () {
+    assert.throws(() => {
+      this.client.querySync('SELECT $1::text AS name', 'Brian')
+    })
+    assert.throws(() => {
+      this.client.prepareSync('test-failure', 'SELECT $1::text as name', 1)
+
+      this.client.executeSync('test-failure', 'Brian')
+    })
+  })
+
   it('prepared statement works', function () {
     this.client.prepareSync('test', 'SELECT $1::text as name', 1)
 
@@ -36,9 +47,11 @@ describe('query sync', function (done) {
   })
 
   it('prepare throws exception on error', function () {
-    assert.throws(function () {
-      this.client.prepareSync('blah', 'I LIKE TO PARTY!!!', 0)
-    }.bind(this))
+    assert.throws(
+      function () {
+        this.client.prepareSync('blah', 'I LIKE TO PARTY!!!', 0)
+      }.bind(this)
+    )
   })
 
   it('throws exception on executing improperly', function () {
@@ -49,9 +62,11 @@ describe('query sync', function (done) {
   })
 
   it('throws exception on error', function () {
-    assert.throws(function () {
-      this.client.querySync('SELECT ASLKJASLKJF')
-    }.bind(this))
+    assert.throws(
+      function () {
+        this.client.querySync('SELECT ASLKJASLKJF')
+      }.bind(this)
+    )
   })
 
   it('is still usable after an error', function () {
