@@ -1,10 +1,6 @@
 name: Node.js CI
 
-on:
-  push:
-    branches: [master]
-  pull_request:
-    branches: [master]
+on: [push, pull_request]
 
 jobs:
   build:
@@ -21,8 +17,9 @@ jobs:
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
 
     strategy:
+      fail-fast: false
       matrix:
-        node-version: [8.x, 10.x, 12.x, 14.x, 16.x]
+        node-version: [10.x, 12.x, 14.x, 16.x, 18.x, 20.x]
 
     steps:
       - uses: actions/checkout@v3
