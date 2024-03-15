@@ -17,6 +17,7 @@ jobs:
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
 
     strategy:
+      fail-fast: false
       matrix:
         node-version: [10.x, 12.x, 14.x, 16.x, 18.x, 20.x]
 
