@@ -1,6 +1,8 @@
-# node-pg-native
+# ⚠️ NOTICE ⚠️
 
-[![Build Status](https://travis-ci.org/brianc/node-pg-native.svg?branch=master)](https://travis-ci.org/brianc/node-pg-native)
+This repository has been archived because it has been moved into the main [pg monorepo](https://github.com/brianc/node-postgres/tree/master/packages/pg-native) for easier maintenece. Please use the main repo for issues/PRs/questions/etc. Thanks! ❤️
+
+# node-pg-native
 
 High performance native bindings between node.js and PostgreSQL via [libpq](https://github.com/brianc/node-libpq) with a simple API.
 
